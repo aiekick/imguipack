@@ -50,6 +50,7 @@ Messaging::~Messaging() = default;
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 void Messaging::DrawStatusBar() {
+    std::lock_guard<std::recursive_mutex> lock(m_Mutex);
     ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
     if (!m_Messages.empty()) {
         for (const auto& cat : m_CategorieInfos) {
@@ -72,6 +73,7 @@ void Messaging::DrawStatusBar() {
 }
 
 void Messaging::DrawConsolePane() {
+    std::lock_guard<std::recursive_mutex> lock(m_Mutex);
     ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
 
     if (m_FilteredMessages.empty() && !m_Messages.empty()) {
@@ -222,6 +224,7 @@ void Messaging::AddMessage(const std::string& vMsg,
     bool vSelect,
     const MessageData& vDatas,
     const MessageFunc& vFunction) {
+    std::lock_guard<std::recursive_mutex> lock(m_Mutex);
     if (vSelect) {
         m_CurrentMsgIdx = (int32_t)m_Messages.size();
     }
@@ -248,6 +251,7 @@ void Messaging::AddMessage(const MessageType& vMessageType,
     const MessageFunc& vFunction,
     const char* fmt,
     ...) {
+    std::lock_guard<std::recursive_mutex> lock(m_Mutex);
     if (m_CategorieInfos.find(vMessageType) != m_CategorieInfos.end()) {
         va_list args;
         va_start(args, fmt);
@@ -259,6 +263,7 @@ void Messaging::AddMessage(const MessageType& vMessageType,
 }
 
 void Messaging::Clear() {
+    std::lock_guard<std::recursive_mutex> lock(m_Mutex);
     m_Messages.clear();
     m_FilteredMessages.clear();
     for (auto& cat : m_CategorieInfos) {
@@ -267,6 +272,7 @@ void Messaging::Clear() {
 }
 
 void Messaging::ClearMessagesOfType(const MessageType& vMessageType) {
+    std::lock_guard<std::recursive_mutex> lock(m_Mutex);
     std::forward_list<int> msgToErase;
     auto idx = 0;
     for (auto& msg_ptr : m_Messages) {
@@ -298,6 +304,7 @@ void Messaging::AddCategory(const MessageType& vMessageType,
     const CategoryName& vCategoryName,
     const IconLabel& vIconLabel,
     const ImVec4& vColor) {
+    std::lock_guard<std::recursive_mutex> lock(m_Mutex);
     auto& ci = m_CategorieInfos[vMessageType];
     ci.type = vMessageType;
     ci.name = vIconLabel + " " + vCategoryName;

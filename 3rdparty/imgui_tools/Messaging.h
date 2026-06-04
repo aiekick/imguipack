@@ -22,6 +22,7 @@ limitations under the License.
 #include <string>
 #include <vector>
 #include <memory>
+#include <mutex>
 #include <imgui.h>
 #include <cstdarg>
 #include <utility>  // std::pair
@@ -106,6 +107,12 @@ private:
 
     ImLayout* m_ImLayoutPtr = nullptr;
 
+    // recursive_mutex because some public entry points (e.g. DrawConsolePane) call
+    // other public-ish operations (sort/filter rebuild) that would otherwise need
+    // to relock. recursive lets us protect every public entry point without
+    // tracking which calls which.
+    mutable std::recursive_mutex m_Mutex;
+
 public:
     void ClearMessagesOfType(const MessageType& vMessageType);
     void Clear();
@@ -131,6 +138,7 @@ public:
         const MessageFunc& vFunction);
     
     void SetImLayout(ImLayout* vImLayoutPtr) {
+        std::lock_guard<std::recursive_mutex> lock(m_Mutex);
         m_ImLayoutPtr = vImLayoutPtr;
     }
 
