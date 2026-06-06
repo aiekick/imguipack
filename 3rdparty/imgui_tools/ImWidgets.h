@@ -976,6 +976,29 @@ IMGUI_API bool InputUIntDefault(  //
     uint32_t step = 1U,
     uint32_t step_fast = 1U);
 
+// ---------------------------------------------------------------------------
+// Layout primitives — horizontal / vertical containers + Spring.
+// Standalone copy of ImNodal::BeginLayoutHorizontal/Vertical/LayoutSpring
+// stripped of the ImNodal context dependency so they can be used in plain
+// ImGui windows (toolbars, status bars, ...) without requiring a BeginNode
+// scope. Same Yoga-style semantics:
+//   - aSize > 0  : forced size in pixels.
+//   - aSize == 0 : natural size (sum of non-Spring children measured at the
+//                  previous frame). LayoutSpring inside is a no-op.
+//   - aSize < 0  : fill parent (parent container's target along the axis,
+//                  or ImGui::GetContentRegionAvail() when at the top level).
+// LayoutSpring(weight) claims its share of the gap between the container's
+// target and the sum of non-Spring children sizes (multi-Spring supported).
+// Auto-SameLine between siblings inside a horizontal container: bare ImGui
+// widgets (Button, Text, ...) do NOT trigger it — wrap them in BeginGroup/EndGroup
+// or another nested container if you need them to participate.
+// ---------------------------------------------------------------------------
+IMGUI_API bool BeginLayoutHorizontal(const char* aId, const ImVec2& aSize = ImVec2(-1.0f, 0.0f));
+IMGUI_API void EndLayoutHorizontal();
+IMGUI_API bool BeginLayoutVertical(const char* aId, const ImVec2& aSize = ImVec2(0.0f, -1.0f));
+IMGUI_API void EndLayoutVertical();
+IMGUI_API void LayoutSpring(float aWeight = 0.0f);
+
 }  // namespace ImGui
 
 namespace ImWidgets {

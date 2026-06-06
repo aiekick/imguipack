@@ -22,6 +22,7 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <unordered_map>
 
 #include <imgui.h>
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
@@ -4196,6 +4197,160 @@ bool InputUIntDefault(float vWidth, const char* vName, uint32_t* vVar, uint32_t 
         SetTooltip("%i", *vVar);
 
     return change;
+}
+
+// ===========================================================================
+// Layout primitives — standalone copy from ImNodal (decoupled from its
+// per-graph context, so they're usable in plain ImGui windows).
+// ===========================================================================
+namespace {
+
+struct LayoutContainer {
+    ImGuiID id{0};
+    bool isHorizontal{true};
+    ImVec2 startCursorScreen{};
+    ImVec2 targetSize{};
+    float consumedAlongAxis{0.0f};
+    float springsTotalWeight{0.0f};
+    int32_t childCount{0};
+};
+
+struct LayoutSlot {
+    float lastNatWidth{0.0f};
+    float lastNatHeight{0.0f};
+    float lastSpringsTotalWeight{0.0f};
+};
+
+// Process-wide state. ImGui itself is single-threaded so no mutex needed.
+// The slots map only grows (~24 bytes per unique BeginLayoutHorizontal/Vertical id),
+// which is bounded by the static set of ids in the program.
+std::vector<LayoutContainer> g_LayoutStack;
+std::unordered_map<ImGuiID, LayoutSlot> g_LayoutSlots;
+
+ImVec2 s_resolveLayoutTarget(const ImVec2& aSize) {
+    ImVec2 target = aSize;
+    if (aSize.x >= 0.0f && aSize.y >= 0.0f) {
+        return target;
+    }
+    ImVec2 parentTarget(0.0f, 0.0f);
+    if (!g_LayoutStack.empty()) {
+        parentTarget = g_LayoutStack.back().targetSize;
+    } else {
+        // Top-level: fall back to the current ImGui window's available content region.
+        // In ImNodal the equivalent fallback was the node body rect — here we don't
+        // have a node, so the surrounding ImGui layout context is the natural anchor.
+        parentTarget = ImGui::GetContentRegionAvail();
+    }
+    if (aSize.x < 0.0f) target.x = parentTarget.x;
+    if (aSize.y < 0.0f) target.y = parentTarget.y;
+    return target;
+}
+
+// Pre-position the cursor on the parent's row when the parent is horizontal and
+// we're about to start a non-first child. No-op when there is no parent or when
+// the parent is vertical.
+void s_emitChildSameLineIfH() {
+    if (g_LayoutStack.empty()) {
+        return;
+    }
+    LayoutContainer& parent = g_LayoutStack.back();
+    if (parent.isHorizontal && parent.childCount > 0) {
+        ImGui::SameLine();
+    }
+    parent.childCount++;
+}
+
+bool s_beginLayout(const char* aId, const ImVec2& aSize, bool aHorizontal) {
+    IM_ASSERT(aId != nullptr && "BeginLayoutHorizontal/Vertical: id must be non-null");
+    s_emitChildSameLineIfH();
+    ImGuiWindow* const pWindow = ImGui::GetCurrentWindow();
+    const ImGuiID id = pWindow->GetID(aId);
+    LayoutContainer c;
+    c.id = id;
+    c.isHorizontal = aHorizontal;
+    c.startCursorScreen = ImGui::GetCursorScreenPos();
+    c.targetSize = s_resolveLayoutTarget(aSize);
+    g_LayoutStack.push_back(c);
+    ImGui::PushID(aId);
+    ImGui::BeginGroup();
+    return true;
+}
+
+void s_endLayout(bool aHorizontal) {
+    IM_ASSERT(!g_LayoutStack.empty() && "EndLayoutHorizontal/Vertical without matching Begin");
+    LayoutContainer c = g_LayoutStack.back();
+    IM_ASSERT(c.isHorizontal == aHorizontal && "EndLayoutHorizontal while a Vertical is open (or vice versa)");
+    g_LayoutStack.pop_back();
+
+    ImGui::EndGroup();
+    ImGui::PopID();
+
+    // natural size = total - sum of Spring fills along the axis. Snapshot the spring
+    // weight total so next frame's Springs each get their proportional share.
+    LayoutSlot& s = g_LayoutSlots[c.id];
+    const ImVec2 total = ImGui::GetItemRectSize();
+    float natW = 0.0f;
+    float natH = 0.0f;
+    if (aHorizontal) {
+        natW = ImMax(0.0f, total.x - c.consumedAlongAxis);
+        natH = total.y;
+    } else {
+        natW = total.x;
+        natH = ImMax(0.0f, total.y - c.consumedAlongAxis);
+    }
+    s.lastNatWidth = natW;
+    s.lastNatHeight = natH;
+    s.lastSpringsTotalWeight = c.springsTotalWeight;
+}
+
+}  // namespace
+
+IMGUI_API bool BeginLayoutHorizontal(const char* aId, const ImVec2& aSize) {
+    return s_beginLayout(aId, aSize, /*horizontal=*/true);
+}
+
+IMGUI_API void EndLayoutHorizontal() {
+    s_endLayout(/*horizontal=*/true);
+}
+
+IMGUI_API bool BeginLayoutVertical(const char* aId, const ImVec2& aSize) {
+    return s_beginLayout(aId, aSize, /*horizontal=*/false);
+}
+
+IMGUI_API void EndLayoutVertical() {
+    s_endLayout(/*horizontal=*/false);
+}
+
+IMGUI_API void LayoutSpring(float aWeight) {
+    IM_ASSERT(!g_LayoutStack.empty() && "LayoutSpring outside of BeginLayoutHorizontal/Vertical scope");
+    if (aWeight < 0.0f) {
+        return;
+    }
+    s_emitChildSameLineIfH();
+
+    LayoutContainer& c = g_LayoutStack.back();
+    LayoutSlot& s = g_LayoutSlots[c.id];
+
+    // Multi-Spring distribution: each Spring takes (gap * weight / totalWeight),
+    // where totalWeight is the sum of weights measured at the PREVIOUS frame.
+    // First frame on a fresh container: lastSpringsTotalWeight is 0 → fill is 0
+    // (the container stays at natural width for one frame then converges).
+    const float target = c.isHorizontal ? c.targetSize.x : c.targetSize.y;
+    const float lastNat = c.isHorizontal ? s.lastNatWidth : s.lastNatHeight;
+    const float gap = ImMax(0.0f, target - lastNat);
+    const float fill = (s.lastSpringsTotalWeight > 0.0f) ? (gap * aWeight / s.lastSpringsTotalWeight) : 0.0f;
+
+    c.springsTotalWeight += aWeight;
+
+    // Always emit a Dummy (even with fill == 0) so CursorPosPrevLine points at the
+    // right spot for the next sibling's implicit SameLine.
+    if (c.isHorizontal) {
+        ImGui::Dummy(ImVec2(fill, 0.0f));
+        ImGui::SameLine(0.0f, 0.0f);
+    } else {
+        ImGui::Dummy(ImVec2(0.0f, fill));
+    }
+    c.consumedAlongAxis += fill;
 }
 
 }  // namespace ImGui

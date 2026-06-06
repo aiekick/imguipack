@@ -209,6 +209,12 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 	// render find/replace popup
 	renderFindReplace(pos, visibleSize.x - verticalScrollBarSize);
 
+	// autocompletion popup. Begin() creates a separate top-level window even when called inside
+	// the editor's BeginChild, and the caret screen pos used as anchor depends on ImGui::GetCursorScreenPos()
+	// staying at the child's content origin — true here because the other render*() calls draw via the
+	// draw list, not via widgets that advance the layout cursor.
+	renderCompletionPopup();
+
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
 	ImGui::PopStyleVar();
@@ -814,6 +820,13 @@ void TextEditor::handleKeyboardInputs() {
 		io.WantCaptureKeyboard = true;
 		io.WantTextInput = true;
 
+		// autocompletion popup gets first dibs on Up/Down/Enter/Escape so the editor doesn't
+		// move the caret / insert newline while the user is navigating the suggestions list.
+		// other keys (printable chars, backspace, ...) fall through.
+		if (completionPopupOpen && handleCompletionPopupKeys()) {
+			return;
+		}
+
 		// get state of modifier keys
 		auto shift = ImGui::IsKeyDown(ImGuiMod_Shift);
 		auto ctrl = ImGui::IsKeyDown(ImGuiMod_Ctrl);
@@ -1005,6 +1018,12 @@ void TextEditor::handleMouseInteractions() {
 		// show text cursor if required
 		if (ImGui::IsWindowFocused() && overText) {
 			ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
+		}
+
+		// per-frame hover notification (text area only, no mouse button held). the host wires this
+		// up to drive watch-on-hover tooltips. line/column are in the same space as the context-menu callback.
+		if (overText && textHoverCallback && !ImGui::IsAnyMouseDown()) {
+			textHoverCallback(mouseCoordAbs.line, mouseCoordAbs.column);
 		}
 
 		if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
@@ -1393,6 +1412,176 @@ void TextEditor::getCursor(int& startLine, int& startColumn, int& endLine, int& 
 	startColumn = start.column;
 	endLine = end.line;
 	endColumn = end.column;
+}
+
+
+//
+//	TextEditor::getCursorScreenPosition
+//
+//	Returns the screen-space position of the cursor's caret (top-left of the caret cell).
+//	Mirrors the math used in renderCursors(): the editor's child-window origin
+//	(ImGui::GetCursorScreenPos() captured while INSIDE the BeginChild) already accounts for
+//	scrolling, so contentOrigin + (textOffset + column*glyphSize.x, line*glyphSize.y) lands
+//	on the correct pixel even when the document is scrolled. Only meaningful during Render
+//	(e.g. from within SetCharacterTypedCallback / SetTextContextMenuCallback / SetTextHoverCallback);
+//	called outside Render, the captured origin is stale and outX/outY are not screen-correct.
+//
+
+void TextEditor::getCursorScreenPosition(size_t cursor, float& outX, float& outY) const {
+	cursor = std::min(cursor, cursors.size() - 1);
+	auto pos = cursors[cursor].getInteractiveEnd();
+	ImVec2 contentOrigin = ImGui::GetCursorScreenPos();
+	outX = contentOrigin.x + textOffset + static_cast<float>(pos.column) * glyphSize.x;
+	outY = contentOrigin.y + static_cast<float>(pos.line) * glyphSize.y;
+}
+
+
+//
+//	TextEditor::openCompletionPopup
+//
+//	Open or refresh the autocompletion popup. Empty items closes the popup silently (the host
+//	chose to push nothing — no need to fire onCancel back at it). When the popup is already open
+//	the existing selection is preserved (clamped to the new items size).
+//
+
+void TextEditor::openCompletionPopup(const std::vector<CompletionItem>& items) {
+	completionItems = items;
+	if (items.empty()) {
+		completionPopupOpen = false;
+		completionSelectedIndex = 0;
+		return;
+	}
+	if (!completionPopupOpen) {
+		completionSelectedIndex = 0;
+		completionPopupOpen = true;
+		// capture the anchor ONCE — at this point we're inside Render (BeginChild active) so
+		// getCursorScreenPosition reads ImGui's per-frame content-origin correctly. Subsequent
+		// re-opens (refresh of items as the user types filter chars) keep this anchor — the
+		// popup stays put where it appeared, doesn't follow the caret around.
+		float caretX = 0.0f;
+		float caretY = 0.0f;
+		getCursorScreenPosition(cursors.getCurrentIndex(), caretX, caretY);
+		completionPopupAnchor = ImVec2(caretX, caretY + glyphSize.y);
+	} else if (completionSelectedIndex >= static_cast<int>(items.size())) {
+		completionSelectedIndex = static_cast<int>(items.size()) - 1;
+	}
+}
+
+
+//
+//	TextEditor::closeCompletionPopupInternal
+//
+//	Resets the popup state. Does NOT fire onCancel — used by both the public CloseCompletionPopup
+//	(host-driven, no notify) and the internal accept/cancel paths (the keypress handler calls
+//	this BEFORE invoking the callback so the callback sees a closed popup if it re-checks).
+//
+
+void TextEditor::closeCompletionPopupInternal() {
+	completionPopupOpen = false;
+	completionItems.clear();
+	completionSelectedIndex = 0;
+}
+
+
+//
+//	TextEditor::handleCompletionPopupKeys
+//
+//	Called at the top of handleKeyboardInputs when the popup is open. Intercepts Up/Down/Enter/
+//	Escape so they drive the popup instead of the editor (cursor stays put, no newline insert,
+//	no Escape fallthrough). Returns true if a key was consumed — caller must early-return so the
+//	rest of the editor's key handling is skipped. Other keys (printable chars, backspace, ...) are
+//	left alone: the host re-filters via the character-typed callback as the user keeps typing.
+//
+
+bool TextEditor::handleCompletionPopupKeys() {
+	if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+		if (completionSelectedIndex > 0) {
+			--completionSelectedIndex;
+		}
+		return true;
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+		if (completionSelectedIndex < static_cast<int>(completionItems.size()) - 1) {
+			++completionSelectedIndex;
+		}
+		return true;
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) {
+		const size_t idx = static_cast<size_t>(completionSelectedIndex);
+		auto cb = completionOnAccept;
+		closeCompletionPopupInternal();
+		if (cb) cb(idx);
+		return true;
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+		auto cb = completionOnCancel;
+		closeCompletionPopupInternal();
+		if (cb) cb();
+		return true;
+	}
+	return false;
+}
+
+
+//
+//	TextEditor::renderCompletionPopup
+//
+//	Draws the popup as a floating ImGui window anchored just below the caret. Pinned to the
+//	current viewport so it never gets promoted to a separate OS window. Clicking on an item
+//	fires onAccept; clicking outside the popup fires onCancel. Only meaningful during render
+//	(uses getCursorScreenPosition which reads ImGui's per-frame cursor screen pos).
+//
+
+void TextEditor::renderCompletionPopup() {
+	if (!completionPopupOpen || completionItems.empty()) {
+		return;
+	}
+	// use the anchor captured at open time (see openCompletionPopup). recomputing every frame
+	// would let the popup briefly jump to a click-outside position before close handling fires.
+	ImGui::SetNextWindowViewport(ImGui::GetWindowViewport()->ID);
+	ImGui::SetNextWindowPos(completionPopupAnchor);
+
+	const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+	                               ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+	                               ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
+	                               ImGuiWindowFlags_AlwaysAutoResize;
+
+	bool popupHovered = false;
+	bool acceptedThisFrame = false;
+	size_t acceptedIndex = 0;
+	if (ImGui::Begin("##textedit_completion", nullptr, flags)) {
+		popupHovered = ImGui::IsWindowHovered();
+		for (size_t i = 0; i < completionItems.size(); ++i) {
+			const auto& item = completionItems[i];
+			const bool selected = (static_cast<int>(i) == completionSelectedIndex);
+			ImGui::PushID(static_cast<int>(i));
+			if (ImGui::Selectable(item.label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
+				completionSelectedIndex = static_cast<int>(i);
+				acceptedThisFrame = true;
+				acceptedIndex = i;
+			}
+			if (!item.detail.empty()) {
+				ImGui::SameLine();
+				ImGui::TextDisabled("(%s)", item.detail.c_str());
+			}
+			ImGui::PopID();
+		}
+	}
+	ImGui::End();
+
+	if (acceptedThisFrame) {
+		auto cb = completionOnAccept;
+		closeCompletionPopupInternal();
+		if (cb) cb(acceptedIndex);
+		return;
+	}
+	// click outside the popup window — close + onCancel. detected AFTER End() so popupHovered
+	// reflects the just-drawn frame's hover state.
+	if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !popupHovered) {
+		auto cb = completionOnCancel;
+		closeCompletionPopupInternal();
+		if (cb) cb();
+	}
 }
 
 
@@ -1848,6 +2037,15 @@ void TextEditor::handleCharacter(ImWchar character) {
 	}
 
 	endTransaction(transaction);
+
+	// notify the host AFTER the transaction is committed, so the cursor position is final. consumers
+	// (autocompletion popups) receive the new cursor coords and can inspect the char just inserted.
+	if (characterTypedCallback) {
+		int line = 0;
+		int column = 0;
+		getCursor(line, column, cursors.getCurrentIndex());
+		characterTypedCallback(character, line, column);
+	}
 }
 
 

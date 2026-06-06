@@ -146,6 +146,13 @@ public:
 	float GetLineHeight() const { return glyphSize.y; }
 	float GetGlyphWidth() const { return glyphSize.x; }
 
+	// screen position of a cursor — meaningful only DURING Render (callbacks fired from handleKeyboardInputs,
+	// SetCharacterTypedCallback, ...). Built from ImGui::GetCursorScreenPos() inside the editor child,
+	// textOffset (gutter width) and glyphSize. Callers use it to anchor floating widgets (autocomplete
+	// popup, signature help) at the text caret instead of the mouse.
+	void GetCursorScreenPosition(size_t cursor, float& outX, float& outY) const { getCursorScreenPosition(cursor, outX, outY); }
+	void GetCurrentCursorScreenPosition(float& outX, float& outY) const { getCursorScreenPosition(cursors.getCurrentIndex(), outX, outY); }
+
 	// note on setting cursor and scrolling
 	//
 	// calling SetCursor or ScrollToLine has no effect until the next call to Render
@@ -209,6 +216,42 @@ public:
 	void SetTextContextMenuCallback(std::function<void(int line, int column)> callback) { textContextMenuCallback = callback; }
 	void ClearTextContextMenuCallback() { SetTextContextMenuCallback(nullptr); }
 	bool HasTextContextMenuCallback() const { return textContextMenuCallback != nullptr; }
+
+	// fires every frame while the mouse is hovering the text area (no mouse button pressed). the host can
+	// time the hover itself (ImGui::IsItemHovered with HoveredFlags_DelayShort etc. is not usable here
+	// because the editor's text area is not a single ImGui item). caller receives the same coordinate
+	// space as the context-menu callback above.
+	void SetTextHoverCallback(std::function<void(int line, int column)> callback) { textHoverCallback = callback; }
+	void ClearTextHoverCallback() { SetTextHoverCallback(nullptr); }
+	bool HasTextHoverCallback() const { return textHoverCallback != nullptr; }
+
+	// fires immediately after a printable character is inserted into the document (via handleCharacter).
+	// `line` / `column` are the cursor position AFTER the insert (so the character lives at column-1).
+	// the host uses this to drive autocompletion popups (e.g. trigger on '.' / ':').
+	void SetCharacterTypedCallback(std::function<void(ImWchar character, int line, int column)> callback) { characterTypedCallback = callback; }
+	void ClearCharacterTypedCallback() { SetCharacterTypedCallback(nullptr); }
+	bool HasCharacterTypedCallback() const { return characterTypedCallback != nullptr; }
+
+	// autocompletion popup. the editor OWNS the rendering and the keyboard interception
+	// (Up/Down/Enter/Escape are consumed when open; everything else falls through so the host can
+	// still drive filter updates via the character-typed callback). the host OWNS the content (the
+	// item list) and the opening/closing.
+	struct CompletionItem {
+		std::string label;   // display text + the prefix used by the host to match the typed filter
+		std::string detail;  // optional dimmed suffix (e.g. Lua type name)
+	};
+	// register the accept/cancel sinks once (typically in the editor's init). onAccept fires on Enter
+	// or click on an item; onCancel fires on Escape or click outside the popup window.
+	void SetCompletionCallbacks(std::function<void(size_t selectedIndex)> onAccept, std::function<void()> onCancel) {
+		completionOnAccept = onAccept;
+		completionOnCancel = onCancel;
+	}
+	// open the popup with the supplied items, OR refresh an already-open popup. with an empty list,
+	// the popup just closes (no onCancel — the host is the one passing the empty list).
+	void OpenCompletionPopup(const std::vector<CompletionItem>& items) { openCompletionPopup(items); }
+	// force-close (host switching away, popup obsolete, ...). does NOT fire onCancel.
+	void CloseCompletionPopup() { closeCompletionPopupInternal(); }
+	bool IsCompletionPopupOpen() const { return completionPopupOpen; }
 
 	// useful functions to work on selections
 	void IndentLines() { if (!readOnly) indentLines(); }
@@ -896,7 +939,14 @@ protected:
 	// access cursor locations
 	void getCursor(int& line, int& column, size_t cursor) const;
 	void getCursor(int& startLine, int& startColumn, int& endLine, int& endColumn, size_t cursor) const;
+	void getCursorScreenPosition(size_t cursor, float& outX, float& outY) const;
 	std::string	getCursorText(size_t cursor) const;
+
+	// autocompletion popup helpers (called by Open/Close + the keyboard interceptor + render)
+	void openCompletionPopup(const std::vector<CompletionItem>& items);
+	void closeCompletionPopupInternal();  // resets state without firing callbacks — internal use
+	bool handleCompletionPopupKeys();      // returns true if a key was consumed (skip default handling)
+	void renderCompletionPopup();          // floating window pinned to the caret; handles click + click-outside
 
 	// scrolling support
 	void makeCursorVisible();
@@ -1014,8 +1064,21 @@ protected:
 
 	std::function<void(int line)> lineNumberContextMenuCallback;
 	std::function<void(int line, int column)> textContextMenuCallback;
+	std::function<void(int line, int column)> textHoverCallback;
+	std::function<void(ImWchar character, int line, int column)> characterTypedCallback;
 	int contextMenuLine = 0;
 	int contextMenuColumn = 0;
+
+	// autocompletion popup state (see SetCompletionCallbacks / OpenCompletionPopup in the public section)
+	std::vector<CompletionItem> completionItems;
+	std::function<void(size_t)> completionOnAccept;
+	std::function<void()> completionOnCancel;
+	bool completionPopupOpen = false;
+	int completionSelectedIndex = 0;
+	// anchor captured ONCE when the popup transitions from closed→open. recomputing it every frame
+	// would make the popup jump to the click position for 1 frame when the user clicks outside
+	// (handleMouseInteractions moves the caret BEFORE renderCompletionPopup runs).
+	ImVec2 completionPopupAnchor{0.0f, 0.0f};
 
 	static constexpr int leftMargin = 1; // margins are expressed in glyphs
 	static constexpr int decorationMargin = 1;

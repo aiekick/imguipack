@@ -53,8 +53,6 @@
 		#define IMGENIE_API __declspec(dllexport)
 		#define IMNODAL_API __declspec(dllexport)
 		#define IMGUI_IMPL_API __declspec(dllexport)
-		#define IMGUIEX_CANVAS_API __declspec(dllexport)
-		#define IMGUI_NODE_EDITOR_API __declspec(dllexport)
 		#define IN_APP_GPU_PROFILER_API __declspec(dllexport)
 	#elif defined(BUILD_IMGUI_PACK_SHARED_LIBS)
 		#define IGFD_API __declspec(dllimport)
@@ -63,8 +61,6 @@
 		#define IMGENIE_API __declspec(dllimport)
 		#define IMNODAL_API __declspec(dllimport)
 		#define IMGUI_IMPL_API __declspec(dllimport)
-		#define IMGUIEX_CANVAS_API __declspec(dllimport)
-		#define IMGUI_NODE_EDITOR_API __declspec(dllimport)
 		#define IN_APP_GPU_PROFILER_API __declspec(dllimport)
 	#else
 		#define IGFD_API
@@ -73,8 +69,6 @@
 		#define IMGENIE_API
 		#define IMNODAL_API
 		#define IMGUI_IMPL_API
-		#define IMGUIEX_CANVAS_API
-		#define IMGUI_NODE_EDITOR_API
 		#define IN_APP_GPU_PROFILER_API
 	#endif
 #else
@@ -84,8 +78,6 @@
 	#define IMGENIE_API
 	#define IMNODAL_API
 	#define IMGUI_IMPL_API
-	#define IMGUIEX_CANVAS_API
-	#define IMGUI_NODE_EDITOR_API
 	#define IN_APP_GPU_PROFILER_API
 #endif
 
@@ -142,12 +134,6 @@
 
 #ifdef USE_IMGUI_MARKDOW
 	#include <3rdparty/imgui_markdown/imgui_markdown.h>
-#endif
-
-#ifdef USE_IMGUI_NODE_EDITOR
-	#include <3rdparty/imgui_node_editor/imgui_node_editor.h>
-	#include <3rdparty/imgui_node_editor/imgui_canvas.h>
-	namespace nd = ax::NodeEditor;
 #endif
 
 #ifdef USE_IMGUI_COLOR_TEXT_EDIT
