@@ -981,17 +981,42 @@ IMGUI_API bool InputUIntDefault(  //
 // Standalone copy of ImNodal::BeginLayoutHorizontal/Vertical/LayoutSpring
 // stripped of the ImNodal context dependency so they can be used in plain
 // ImGui windows (toolbars, status bars, ...) without requiring a BeginNode
-// scope. Same Yoga-style semantics:
+// scope. This is a PURE consumer of the public ImGui API — no imgui core
+// patch needed. The trade-off vs the imgui_stacklayout PR #846 (which hooks
+// ItemAdd/ItemSize to auto-track every widget as a layout child) is that
+// bare widgets here do NOT auto-SameLine inside a horizontal container.
+// Use `LayoutSpring(0.0f)` between them — that's the canonical SameLine
+// trigger, equivalent to `ImGui::SameLine(0, 0)` but accounted for as a
+// (zero-fill) layout child so subsequent siblings stack correctly.
+//
+// Yoga-style size semantics:
 //   - aSize > 0  : forced size in pixels.
 //   - aSize == 0 : natural size (sum of non-Spring children measured at the
-//                  previous frame). LayoutSpring inside is a no-op.
+//                  previous frame). LayoutSpring(weight > 0) inside is a no-op.
 //   - aSize < 0  : fill parent (parent container's target along the axis,
 //                  or ImGui::GetContentRegionAvail() when at the top level).
-// LayoutSpring(weight) claims its share of the gap between the container's
-// target and the sum of non-Spring children sizes (multi-Spring supported).
-// Auto-SameLine between siblings inside a horizontal container: bare ImGui
-// widgets (Button, Text, ...) do NOT trigger it — wrap them in BeginGroup/EndGroup
-// or another nested container if you need them to participate.
+//
+// LayoutSpring(weight) semantics:
+//   - weight == 0 (default) : pure SameLine trigger. No fill. Use it between
+//                             bare widgets that you want on the same row.
+//   - weight > 0            : SameLine + claim share of the gap between the
+//                             container's target and the sum of non-Spring
+//                             children sizes. Multi-Spring distributes the
+//                             gap proportionally to weights.
+//   - weight < 0            : no-op.
+//
+// Typical toolbar pattern (left actions block, right quick-actions block):
+//   BeginLayoutHorizontal("##toolbar");
+//     buttonA();
+//     LayoutSpring(0.0f);  // SameLine between bare widgets
+//     buttonB();
+//     LayoutSpring(0.0f);
+//     buttonC();
+//     LayoutSpring(1.0f);  // push the rest to the right
+//     buttonX();
+//     LayoutSpring(0.0f);
+//     buttonY();
+//   EndLayoutHorizontal();
 // ---------------------------------------------------------------------------
 IMGUI_API bool BeginLayoutHorizontal(const char* aId, const ImVec2& aSize = ImVec2(-1.0f, 0.0f));
 IMGUI_API void EndLayoutHorizontal();
