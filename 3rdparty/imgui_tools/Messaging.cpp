@@ -102,10 +102,18 @@ void Messaging::DrawConsolePane() {
 
         bool needUpdate = false;
         for (const auto& cat : m_CategorieInfos) {
-            // ImGui::PushStyleColor(ImGuiCol_Text, cat.second.color);
-            needUpdate |= ImGui::RadioButtonLabeled_BitWize<MessageExistFlags>(
-                0.0f, cat.second.name.c_str(), nullptr, &m_MessageExistFlags, cat.second.flag);
-            // ImGui::PopStyleColor();
+            bool was_selected = (m_MessageExistFlags & cat.second.flag) != 0;
+            ImGui::PushStyleColor(ImGuiCol_Text, cat.second.color);
+            if (ImGui::MenuItem(cat.second.name.c_str(), nullptr, was_selected)) {
+                if (was_selected) {
+                    m_MessageExistFlags = m_MessageExistFlags & ~cat.second.flag;  // remove one
+                }else{
+                    m_MessageExistFlags = m_MessageExistFlags | cat.second.flag;  // add one
+                }
+                needUpdate = true;
+            }
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
         }
         if (needUpdate) {
             m_UpdateFilteredMessages();
