@@ -37,110 +37,24 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 		updatePalette();
 	}
 
-	// get font information and determine horizontal offsets for line numbers, decorations and text
-	font = ImGui::GetFont();
-	fontSize = ImGui::GetFontSize();
-	glyphSize = ImVec2(ImGui::CalcTextSize("#").x, ImGui::GetTextLineHeightWithSpacing() * lineSpacing);
-	lineNumberLeftOffset = leftMargin * glyphSize.x;
-
-	if (showLineNumbers) {
-		int digits = static_cast<int>(std::log10(document.lineCount() + 1) + 1.0f);
-		lineNumberRightOffset = lineNumberLeftOffset + digits * glyphSize.x;
-		decorationOffset = lineNumberRightOffset + decorationMargin * glyphSize.x;
-
-	} else {
-		lineNumberRightOffset = lineNumberLeftOffset;
-		decorationOffset = lineNumberLeftOffset;
-	}
-
-	if (decoratorWidth > 0.0f) {
-		textOffset = decorationOffset + decoratorWidth + decorationMargin * glyphSize.x;
-
-	} else if (decoratorWidth < 0.0f) {
-		textOffset = decorationOffset + (-decoratorWidth + decorationMargin) * glyphSize.x;
-
-	} else {
-		textOffset = decorationOffset + textMargin * glyphSize.x;
-	}
-
-	// get current position and total/visible editor size
+	// capture parent-coord cursor before BeginChild — used by renderFindReplace() as an anchor
+	// for its sub-window. Independent of font scale, so it stays here.
 	auto pos = ImGui::GetCursorScreenPos();
-	auto totalSize = ImVec2(textOffset + document.getMaxColumn() * glyphSize.x + cursorWidth, document.size() * glyphSize.y);
-	auto region = ImGui::GetContentRegionAvail();
-	auto visibleSize = ImGui::CalcItemSize(size, region.x, region.y); // messing with Dear ImGui internals
 
-	// see if we have scrollbars
-	float scrollbarSize = ImGui::GetStyle().ScrollbarSize;
-	verticalScrollBarSize = (totalSize.y > visibleSize.y) ? scrollbarSize : 0.0f;
-	horizontalScrollBarSize = (totalSize.x > visibleSize.x) ? scrollbarSize : 0.0f;
-
-	// determine visible lines and columns
-	visibleWidth = visibleSize.x - textOffset - verticalScrollBarSize;
-	visibleColumns = std::max(static_cast<int>(std::ceil(visibleWidth / glyphSize.x)), 0);
-	visibleHeight = visibleSize.y - horizontalScrollBarSize;
-	visibleLines = std::max(static_cast<int>(std::ceil(visibleHeight / glyphSize.y)), 0);
-
-	// determine scrolling requirements
-	float scrollX = -1.0f;
-	float scrollY = -1.0f;
-
-	// ensure cursor is visible (if requested)
-	if (ensureCursorIsVisible) {
-		auto cursor = cursors.getCurrent().getInteractiveEnd();
-
-		if (cursor.line <= firstVisibleLine + 1) {
-			scrollY = std::max(0.0f, (cursor.line - 2.0f) * glyphSize.y);
-
-		} else if (cursor.line >= lastVisibleLine - 1) {
-			scrollY = std::max(0.0f, (cursor.line + 2.0f) * glyphSize.y - visibleHeight);
-		}
-
-		if (cursor.column <= firstVisibleColumn + 1) {
-			scrollX = std::max(0.0f, (cursor.column - 2.0f) * glyphSize.x);
-
-		} else if (cursor.column >= lastVisibleColumn - 1) {
-			scrollX = std::max(0.0f, (cursor.column + 2.0f) * glyphSize.x - visibleWidth);
-		}
-
-		ensureCursorIsVisible = false;
-	}
-
-	// scroll to specified line (if required)
-	if (scrollToLineNumber >= 0) {
-		scrollToLineNumber = std::min(scrollToLineNumber, document.lineCount());
-		scrollX = 0.0f;
-
-		switch (scrollToAlignment) {
-			case Scroll::alignTop:
-				scrollY = std::max(0.0f, static_cast<float>(scrollToLineNumber) * glyphSize.y);
-				break;
-
-			case Scroll::alignMiddle:
-				scrollY = std::max(0.0f, static_cast<float>(scrollToLineNumber - visibleLines / 2) * glyphSize.y);
-				break;
-
-			case Scroll::alignBottom:
-				scrollY = std::max(0.0f, static_cast<float>(scrollToLineNumber - (visibleLines - 1)) * glyphSize.y);
-				break;
-		}
-
-		scrollToLineNumber = -1;
-	}
-
-	// set scroll (if required)
-	if (scrollX >= 0.0f || scrollY >= 0.0f) {
-		ImGui::SetNextWindowScroll(ImVec2(scrollX, scrollY));
-	}
-
-	// ensure editor has focus (if required)
+	// SetNextWindowFocus must be called BEFORE BeginChild — and it's also scale-independent.
 	if (focusOnEditor) {
 		ImGui::SetNextWindowFocus();
 		focusOnEditor = false;
 	}
 
-	// start a new child window
-	// this must be done before we handle keyboard and mouse interactions to ensure correct Dear ImGui context
-	ImGui::SetNextWindowContentSize(totalSize);
+	// All glyph-metric / total-size / scroll-target work moved INSIDE BeginChild below: the only
+	// place where the child's actual FontWindowScale is known (Ctrl+MouseWheel zoom, persisted
+	// zoom via SetWindowFontScale). The previous pre-BeginChild capture used the PARENT's scale
+	// and tried to pre-multiply by the expected child scale, which never quite matched the
+	// inside-child line height (ItemSpacing.y is a style constant, not scaled by FontWindowScale,
+	// so naive multiplication accumulated a per-line drift). The clean fix: inflate ContentSize
+	// via ImGui::Dummy(totalSize) inside the child, so ImGui derives ScrollMaxY directly from
+	// the cursor extent — no second source of truth for the line height.
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertU32ToFloat4(palette.get(Color::background)));
 	ImGui::BeginChild(title, size, border, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs);
@@ -155,12 +69,9 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 	}
 	currentFontScale = ImGui::GetCurrentWindow()->FontWindowScale;
 
-	// RE-CAPTURE font / fontSize / glyphSize INSIDE the child — built-in Ctrl+MouseWheel zoom
-	// modifies the HOVERED window's FontWindowScale, which here is the child (this BeginChild),
-	// not the parent we captured from above. Without this second capture, font->RenderChar
-	// (used for code text) uses the parent's stale scale while drawList->AddText (used for line
-	// numbers, inside the child) uses the child's live scale, producing a size mismatch.
-	// totalSize above can be 1 frame stale right after a zoom — self-corrects next frame.
+	// capture font + glyph metrics at the CHILD's actual scale. The pushed ItemSpacing of (0,0)
+	// makes GetTextLineHeightWithSpacing() degenerate to FontSize, so glyphSize.y is just the
+	// scaled font height × lineSpacing — clean and consistent everywhere we read it below.
 	font = ImGui::GetFont();
 	fontSize = ImGui::GetFontSize();
 	glyphSize = ImVec2(ImGui::CalcTextSize("#").x, ImGui::GetTextLineHeightWithSpacing() * lineSpacing);
@@ -179,6 +90,75 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 		textOffset = decorationOffset + (-decoratorWidth + decorationMargin) * glyphSize.x;
 	} else {
 		textOffset = decorationOffset + textMargin * glyphSize.x;
+	}
+
+	// total content size — driven by glyphSize, which IS correct now. We reserve this rect via
+	// Dummy(), which advances the cursor by exactly totalSize (ItemSpacing is (0,0)). ImGui then
+	// derives ContentSize from the cumulative cursor extent, so ScrollMaxY matches the actual
+	// rendered area: scrollbar reaches its end exactly when the last line is at the viewport
+	// bottom. SetCursorPos((0,0)) restores the origin so the renderXxx() helpers — which read
+	// GetCursorScreenPos() to position their drawList output — draw at the child's top-left.
+	auto totalSize = ImVec2(textOffset + document.getMaxColumn() * glyphSize.x + cursorWidth, document.size() * glyphSize.y);
+	ImGui::Dummy(totalSize);
+	ImGui::SetCursorPos(ImVec2(0.0f, 0.0f));
+
+	// visible region — GetContentRegionAvail() already excludes the scrollbars that ImGui drew
+	// for this frame (based on the previous frame's ContentSize). Width/height for the scroll-
+	// target math + the renderFindReplace() anchor below.
+	auto visibleSize = ImGui::GetContentRegionAvail();
+	float scrollbarSize = ImGui::GetStyle().ScrollbarSize;
+	ImGuiWindow* childWindowForBars = ImGui::GetCurrentWindow();
+	verticalScrollBarSize = childWindowForBars->ScrollbarY ? scrollbarSize : 0.0f;
+	horizontalScrollBarSize = childWindowForBars->ScrollbarX ? scrollbarSize : 0.0f;
+	visibleWidth = visibleSize.x - textOffset;
+	visibleColumns = std::max(static_cast<int>(std::ceil(visibleWidth / glyphSize.x)), 0);
+	visibleHeight = visibleSize.y;
+	visibleLines = std::max(static_cast<int>(std::ceil(visibleHeight / glyphSize.y)), 0);
+
+	// scroll target — same logic as before, just executed with the correct glyphSize.
+	float scrollX = -1.0f;
+	float scrollY = -1.0f;
+
+	if (ensureCursorIsVisible) {
+		auto cursor = cursors.getCurrent().getInteractiveEnd();
+		if (cursor.line <= firstVisibleLine + 1) {
+			scrollY = std::max(0.0f, (cursor.line - 2.0f) * glyphSize.y);
+		} else if (cursor.line >= lastVisibleLine - 1) {
+			scrollY = std::max(0.0f, (cursor.line + 2.0f) * glyphSize.y - visibleHeight);
+		}
+		if (cursor.column <= firstVisibleColumn + 1) {
+			scrollX = std::max(0.0f, (cursor.column - 2.0f) * glyphSize.x);
+		} else if (cursor.column >= lastVisibleColumn - 1) {
+			scrollX = std::max(0.0f, (cursor.column + 2.0f) * glyphSize.x - visibleWidth);
+		}
+		ensureCursorIsVisible = false;
+	}
+
+	if (scrollToLineNumber >= 0) {
+		scrollToLineNumber = std::min(scrollToLineNumber, document.lineCount());
+		scrollX = 0.0f;
+		switch (scrollToAlignment) {
+			case Scroll::alignTop:
+				scrollY = std::max(0.0f, static_cast<float>(scrollToLineNumber) * glyphSize.y);
+				break;
+			case Scroll::alignMiddle:
+				scrollY = std::max(0.0f, static_cast<float>(scrollToLineNumber - visibleLines / 2) * glyphSize.y);
+				break;
+			case Scroll::alignBottom:
+				scrollY = std::max(0.0f, static_cast<float>(scrollToLineNumber - (visibleLines - 1)) * glyphSize.y);
+				break;
+		}
+		scrollToLineNumber = -1;
+	}
+
+	// SetScrollX/Y inside BeginChild (operates on the current window) replaces the previous
+	// SetNextWindowScroll. Effect on GetScrollX/Y is immediate, so the firstVisibleLine /
+	// lastVisibleLine block below sees the new scroll position this frame.
+	if (scrollX >= 0.0f) {
+		ImGui::SetScrollX(scrollX);
+	}
+	if (scrollY >= 0.0f) {
+		ImGui::SetScrollY(scrollY);
 	}
 
 	// handle keyboard and mouse inputs
@@ -247,8 +227,9 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 		ImGui::EndPopup();
 	}
 
-	// render find/replace popup
-	renderFindReplace(pos, visibleSize.x - verticalScrollBarSize);
+	// render find/replace popup. visibleSize.x is now GetContentRegionAvail() which already
+	// excludes the vertical scrollbar — don't double-subtract verticalScrollBarSize here.
+	renderFindReplace(pos, visibleSize.x);
 
 	// autocompletion popup. Begin() creates a separate top-level window even when called inside
 	// the editor's BeginChild, and the caret screen pos used as anchor depends on ImGui::GetCursorScreenPos()
