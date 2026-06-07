@@ -299,7 +299,11 @@ void TextEditor::renderMarkers() {
 					drawList->AddRectFilled(start, end, marker.lineNumberColor);
 
 					if (marker.lineNumberTooltip.size() && ImGui::IsMouseHoveringRect(start, end)) {
-						ImGui::PushStyleColor(ImGuiCol_PopupBg, marker.lineNumberColor);
+						// force the popup bg to fully opaque — marker.lineNumberColor may carry a
+						// translucent alpha (intended for the line/gutter tint) which would make the
+						// tooltip text unreadable on dark themes.
+						const ImU32 opaqueBg = (marker.lineNumberColor & 0x00FFFFFF) | (static_cast<ImU32>(0xFF) << IM_COL32_A_SHIFT);
+						ImGui::PushStyleColor(ImGuiCol_PopupBg, opaqueBg);
 						ImGui::BeginTooltip();
 						ImGui::TextUnformatted(marker.lineNumberTooltip.c_str());
 						ImGui::EndTooltip();
@@ -315,7 +319,10 @@ void TextEditor::renderMarkers() {
 					drawList->AddRectFilled(start, end, marker.textColor);
 
 					if (marker.textTooltip.size() && ImGui::IsMouseHoveringRect(start, end)) {
-						ImGui::PushStyleColor(ImGuiCol_PopupBg, marker.textColor);
+						// same fix as for the line-number tooltip: marker.textColor is the
+						// translucent line tint, force alpha to 255 so the tooltip text is readable.
+						const ImU32 opaqueBg = (marker.textColor & 0x00FFFFFF) | (static_cast<ImU32>(0xFF) << IM_COL32_A_SHIFT);
+						ImGui::PushStyleColor(ImGuiCol_PopupBg, opaqueBg);
 						ImGui::BeginTooltip();
 						ImGui::TextUnformatted(marker.textTooltip.c_str());
 						ImGui::EndTooltip();
