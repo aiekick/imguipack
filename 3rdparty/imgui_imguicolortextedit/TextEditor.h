@@ -275,6 +275,15 @@ public:
 	void CloseSignatureTooltip() { closeSignatureTooltipInternal(); }
 	bool IsSignatureTooltipOpen() const { return signatureTooltipOpen; }
 
+	// per-editor font scale (the host's persistent zoom). SetPendingFontScale queues a scale to
+	// apply ONCE on the next Render — applied after BeginChild via ImGui::SetWindowFontScale so
+	// it sits on top of ImGui's per-window FontWindowScale. Call it at editor creation (restore
+	// from project XML) and only when the host actually wants to push a new value — calling it
+	// every frame would clobber the user's interactive Ctrl+MouseWheel zoom. GetCurrentFontScale
+	// reads back the effective scale captured at the last Render (read AFTER Render returns).
+	void SetPendingFontScale(float aScale) { pendingFontScale = aScale; }
+	float GetCurrentFontScale() const { return currentFontScale; }
+
 	// useful functions to work on selections
 	void IndentLines() { if (!readOnly) indentLines(); }
 	void DeindentLines() { if (!readOnly) deindentLines(); }
@@ -1112,6 +1121,11 @@ protected:
 	SignatureTooltip signatureTooltip;
 	bool signatureTooltipOpen = false;
 	ImVec2 signatureTooltipAnchor{0.0f, 0.0f};
+
+	// host-controlled font scale — pendingFontScale > 0 means "apply on next BeginChild then
+	// clear". currentFontScale mirrors the child window's FontWindowScale captured at last Render.
+	float pendingFontScale = -1.0f;
+	float currentFontScale = 1.0f;
 
 	static constexpr int leftMargin = 1; // margins are expressed in glyphs
 	static constexpr int decorationMargin = 1;

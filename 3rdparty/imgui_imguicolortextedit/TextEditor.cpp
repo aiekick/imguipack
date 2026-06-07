@@ -145,6 +145,16 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertU32ToFloat4(palette.get(Color::background)));
 	ImGui::BeginChild(title, size, border, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs);
 
+	// host-pushed font scale (project zoom restore). One-shot: applied once, then cleared so
+	// ImGui's interactive Ctrl+MouseWheel zoom can take over on subsequent frames without being
+	// stomped. Cached `currentFontScale` is read AFTER any apply so the host's
+	// GetCurrentFontScale() always sees the effective value (whether host-set or wheel-driven).
+	if (pendingFontScale > 0.0f) {
+		ImGui::SetWindowFontScale(pendingFontScale);
+		pendingFontScale = -1.0f;
+	}
+	currentFontScale = ImGui::GetCurrentWindow()->FontWindowScale;
+
 	// RE-CAPTURE font / fontSize / glyphSize INSIDE the child — built-in Ctrl+MouseWheel zoom
 	// modifies the HOVERED window's FontWindowScale, which here is the child (this BeginChild),
 	// not the parent we captured from above. Without this second capture, font->RenderChar
@@ -461,12 +471,14 @@ void TextEditor::renderCursors() {
 		cursorAnimationTimer = static_cast<float>(std::fmod(nowSec - cursorAnimationEpochSeconds, 1.0));
 	}
 
-	// gate by OS app focus (io.AppFocusLost — persistent flag, driven by the GLFW/SDL backend's
-	// AddFocusEvent). ImGui::IsWindowFocused only knows about ImGui's internal nav focus and
-	// stays true after Alt+Tab; AppFocusLost is the only reliable "the OS window lost focus" bit.
-	// The caret stays visible regardless of which ImGui pane has the in-app focus, and hides
-	// instantly when the user Alt+Tabs to another app.
-	if (!ImGui::GetIO().AppFocusLost) {
+	// gate by OS-window focus. io.AppFocusLost can't be used here: it's transient (cleared every
+	// EndFrame), so checking it next frame always reads false even after focus loss. The persistent
+	// signal is the current viewport's ImGuiViewportFlags_IsFocused bit, set/cleared by
+	// Platform_GetWindowFocus() each frame from the backend. With multi-viewport enabled, this
+	// targets the actual OS window the editor lives in (detached pane gets its own viewport).
+	ImGuiViewport* viewport = ImGui::GetWindowViewport();
+	const bool appHasFocus = viewport && (viewport->Flags & ImGuiViewportFlags_IsFocused);
+	if (appHasFocus) {
 		ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
 
 		if (!ImGui::GetIO().ConfigInputTextCursorBlink || cursorAnimationTimer < 0.5f) {
