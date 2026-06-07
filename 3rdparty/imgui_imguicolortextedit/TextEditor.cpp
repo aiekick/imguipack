@@ -1,4 +1,5 @@
 #include <cmath>
+#include <chrono>
 #include <limits>
 
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
@@ -144,6 +145,32 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertU32ToFloat4(palette.get(Color::background)));
 	ImGui::BeginChild(title, size, border, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs);
 
+	// RE-CAPTURE font / fontSize / glyphSize INSIDE the child — built-in Ctrl+MouseWheel zoom
+	// modifies the HOVERED window's FontWindowScale, which here is the child (this BeginChild),
+	// not the parent we captured from above. Without this second capture, font->RenderChar
+	// (used for code text) uses the parent's stale scale while drawList->AddText (used for line
+	// numbers, inside the child) uses the child's live scale, producing a size mismatch.
+	// totalSize above can be 1 frame stale right after a zoom — self-corrects next frame.
+	font = ImGui::GetFont();
+	fontSize = ImGui::GetFontSize();
+	glyphSize = ImVec2(ImGui::CalcTextSize("#").x, ImGui::GetTextLineHeightWithSpacing() * lineSpacing);
+	lineNumberLeftOffset = leftMargin * glyphSize.x;
+	if (showLineNumbers) {
+		int digits = static_cast<int>(std::log10(document.lineCount() + 1) + 1.0f);
+		lineNumberRightOffset = lineNumberLeftOffset + digits * glyphSize.x;
+		decorationOffset = lineNumberRightOffset + decorationMargin * glyphSize.x;
+	} else {
+		lineNumberRightOffset = lineNumberLeftOffset;
+		decorationOffset = lineNumberLeftOffset;
+	}
+	if (decoratorWidth > 0.0f) {
+		textOffset = decorationOffset + decoratorWidth + decorationMargin * glyphSize.x;
+	} else if (decoratorWidth < 0.0f) {
+		textOffset = decorationOffset + (-decoratorWidth + decorationMargin) * glyphSize.x;
+	} else {
+		textOffset = decorationOffset + textMargin * glyphSize.x;
+	}
+
 	// handle keyboard and mouse inputs
 	handleKeyboardInputs();
 	handleMouseInteractions();
@@ -151,6 +178,10 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 	// ensure cursors are up to date (sorted and merged if required)
 	if (cursors.anyHasUpdate()) {
 		cursors.update();
+		// reset the blink epoch so the caret pops back to visible right after a movement /
+		// typing / Backspace / Enter / etc. without this, the caret stays invisible until the
+		// next "on" half of the blink cycle (up to 0.5s) — feels broken when navigating.
+		cursorAnimationEpochSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 	}
 
 	// recolorize entire document and reset brackets (if required)
@@ -214,6 +245,9 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 	// staying at the child's content origin — true here because the other render*() calls draw via the
 	// draw list, not via widgets that advance the layout cursor.
 	renderCompletionPopup();
+	// signature-help tooltip — passive companion of the completion popup. Same anchor-at-open
+	// semantics; doesn't grab focus or keys.
+	renderSignatureTooltip();
 
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
@@ -417,10 +451,22 @@ void TextEditor::renderText() {
 //
 
 void TextEditor::renderCursors() {
-	// update cursor animation timer
-	cursorAnimationTimer = std::fmod(cursorAnimationTimer + ImGui::GetIO().DeltaTime, 1.0f);
+	// update cursor animation timer. wall-clock based (std::chrono::steady_clock) modulo 1 s so
+	// the blink stays at a steady 1 Hz even when frames are irregular (a single slow frame would
+	// have skipped the cycle under the previous DeltaTime accumulator). Origin is reset on every
+	// cursor edit / movement (cf. cursorAnimationEpochSeconds above) so the caret pops back to
+	// the visible half of the cycle right after each action.
+	{
+		const double nowSec = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+		cursorAnimationTimer = static_cast<float>(std::fmod(nowSec - cursorAnimationEpochSeconds, 1.0));
+	}
 
-	if (ImGui::IsWindowFocused()) {
+	// gate by OS app focus (io.AppFocusLost — persistent flag, driven by the GLFW/SDL backend's
+	// AddFocusEvent). ImGui::IsWindowFocused only knows about ImGui's internal nav focus and
+	// stays true after Alt+Tab; AppFocusLost is the only reliable "the OS window lost focus" bit.
+	// The caret stays visible regardless of which ImGui pane has the in-app focus, and hides
+	// instantly when the user Alt+Tabs to another app.
+	if (!ImGui::GetIO().AppFocusLost) {
 		ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
 
 		if (!ImGui::GetIO().ConfigInputTextCursorBlink || cursorAnimationTimer < 0.5f) {
@@ -1582,6 +1628,108 @@ void TextEditor::renderCompletionPopup() {
 		closeCompletionPopupInternal();
 		if (cb) cb();
 	}
+}
+
+
+//
+//	TextEditor::openSignatureTooltip
+//
+//	Open or refresh the signature-help tooltip. Empty args is allowed (e.g. parameterless
+//	function — the tooltip still shows "name()") but an empty label closes the tooltip. The
+//	anchor is captured ONCE on the closed→open transition (same reasoning as the completion
+//	popup: recomputing every frame would let the tooltip jump if the caret moves).
+//
+
+void TextEditor::openSignatureTooltip(const SignatureTooltip& aTooltip) {
+	if (aTooltip.label.empty()) {
+		closeSignatureTooltipInternal();
+		return;
+	}
+	signatureTooltip = aTooltip;
+	if (!signatureTooltipOpen) {
+		signatureTooltipOpen = true;
+		float caretX = 0.0f;
+		float caretY = 0.0f;
+		getCursorScreenPosition(cursors.getCurrentIndex(), caretX, caretY);
+		// place the tooltip ABOVE the caret line (VS-style), with a small vertical gap so it
+		// doesn't overlap the line being edited. The tooltip height is unknown until ImGui
+		// measures it next frame, so we anchor to `caretY` and rely on AlwaysAutoResize +
+		// negative Y-offset performed implicitly by ImGui clamping if it would go off-screen.
+		signatureTooltipAnchor = ImVec2(caretX, caretY - glyphSize.y - 4.0f);
+	}
+}
+
+
+//
+//	TextEditor::closeSignatureTooltipInternal
+//
+
+void TextEditor::closeSignatureTooltipInternal() {
+	signatureTooltipOpen = false;
+	signatureTooltip = SignatureTooltip{};
+}
+
+
+//
+//	TextEditor::renderSignatureTooltip
+//
+//	Passive tooltip — no keyboard interception, no callback. Single line: `label(arg1, arg2,
+//	**arg3**, arg4)` with the current arg bolded via color (true bold needs a separate font).
+//
+
+void TextEditor::renderSignatureTooltip() {
+	if (!signatureTooltipOpen || signatureTooltip.label.empty()) {
+		return;
+	}
+	ImGui::SetNextWindowViewport(ImGui::GetWindowViewport()->ID);
+	ImGui::SetNextWindowPos(signatureTooltipAnchor);
+
+	const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+	                               ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+	                               ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
+	                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs;
+
+	// vivid color for the highlighted arg name. Color::cursor is sometimes white/light and
+	// blends into the disabled grey of the other args — pick a yellow-ish accent that pops
+	// on both Dark and Light palettes.
+	const ImU32 currentArgColor = IM_COL32(255, 200, 80, 255);
+
+	if (ImGui::Begin("##textedit_signature", nullptr, flags)) {
+		// IDE-style row: <label>(<args separated by ", ">) where each arg is rendered as
+		// "name: type". non-current args go through TextDisabled (greyed) — current arg is
+		// highlighted in a vivid color so the contrast pops at a glance. SameLine(0,0) keeps
+		// the inline reading flow.
+		ImGui::TextDisabled("%s", signatureTooltip.label.c_str());
+		ImGui::SameLine(0.0f, 0.0f);
+		ImGui::TextDisabled("(");
+		for (size_t i = 0; i < signatureTooltip.args.size(); ++i) {
+			if (i > 0) {
+				ImGui::SameLine(0.0f, 0.0f);
+				ImGui::TextDisabled(", ");
+			}
+			ImGui::SameLine(0.0f, 0.0f);
+			const auto& arg = signatureTooltip.args[i];
+			const bool isCurrent = (static_cast<int32_t>(i) == signatureTooltip.currentArgIndex);
+			if (isCurrent) {
+				ImGui::PushStyleColor(ImGuiCol_Text, currentArgColor);
+				if (!arg.type.empty()) {
+					ImGui::Text("%s: %s", arg.name.c_str(), arg.type.c_str());
+				} else {
+					ImGui::TextUnformatted(arg.name.c_str());
+				}
+				ImGui::PopStyleColor();
+			} else {
+				if (!arg.type.empty()) {
+					ImGui::TextDisabled("%s: %s", arg.name.c_str(), arg.type.c_str());
+				} else {
+					ImGui::TextDisabled("%s", arg.name.c_str());
+				}
+			}
+		}
+		ImGui::SameLine(0.0f, 0.0f);
+		ImGui::TextDisabled(")");
+	}
+	ImGui::End();
 }
 
 

@@ -253,6 +253,28 @@ public:
 	void CloseCompletionPopup() { closeCompletionPopupInternal(); }
 	bool IsCompletionPopupOpen() const { return completionPopupOpen; }
 
+	// signature-help tooltip — passive companion of the autocompletion popup. The host opens it
+	// when the user types `(` after a known callable, advances the current arg index when `,` is
+	// typed at the call's paren depth, and closes it when the call is finished / cancelled. No
+	// keyboard interception (the editor still owns the keys for typing inside the call's args).
+	struct SignatureArg {
+		std::string name;
+		std::string type;  // optional — empty means "no type displayed"
+	};
+	struct SignatureTooltip {
+		std::string label;                // displayed before the parens (e.g. "ltg:addSignalTag")
+		std::vector<SignatureArg> args;   // ordered list of parameter descriptors
+		int32_t currentArgIndex{0};       // 0-based — args[currentArgIndex] is highlighted; -1 hides highlight
+	};
+	void OpenSignatureTooltip(const SignatureTooltip& aTooltip) { openSignatureTooltip(aTooltip); }
+	void UpdateSignatureCurrentArg(int32_t aNewArgIndex) {
+		if (signatureTooltipOpen) {
+			signatureTooltip.currentArgIndex = aNewArgIndex;
+		}
+	}
+	void CloseSignatureTooltip() { closeSignatureTooltipInternal(); }
+	bool IsSignatureTooltipOpen() const { return signatureTooltipOpen; }
+
 	// useful functions to work on selections
 	void IndentLines() { if (!readOnly) indentLines(); }
 	void DeindentLines() { if (!readOnly) deindentLines(); }
@@ -948,6 +970,11 @@ protected:
 	bool handleCompletionPopupKeys();      // returns true if a key was consumed (skip default handling)
 	void renderCompletionPopup();          // floating window pinned to the caret; handles click + click-outside
 
+	// signature-help tooltip helpers (passive — no key interception, no callbacks back to host)
+	void openSignatureTooltip(const SignatureTooltip& aTooltip);
+	void closeSignatureTooltipInternal();
+	void renderSignatureTooltip();
+
 	// scrolling support
 	void makeCursorVisible();
 	void scrollToLine(int line, Scroll alignment);
@@ -1053,6 +1080,7 @@ protected:
 	float verticalScrollBarSize;
 	float horizontalScrollBarSize;
 	float cursorAnimationTimer = 0.0f;
+	double cursorAnimationEpochSeconds = 0.0;  // wall-clock origin of the 1 Hz blink cycle; advanced on cursor edits so the caret pops visible right after a movement
 	bool ensureCursorIsVisible = false;
 	int scrollToLineNumber = -1;
 	Scroll scrollToAlignment = Scroll::alignMiddle;
@@ -1079,6 +1107,11 @@ protected:
 	// would make the popup jump to the click position for 1 frame when the user clicks outside
 	// (handleMouseInteractions moves the caret BEFORE renderCompletionPopup runs).
 	ImVec2 completionPopupAnchor{0.0f, 0.0f};
+
+	// signature-help tooltip state (see OpenSignatureTooltip / CloseSignatureTooltip in the public section)
+	SignatureTooltip signatureTooltip;
+	bool signatureTooltipOpen = false;
+	ImVec2 signatureTooltipAnchor{0.0f, 0.0f};
 
 	static constexpr int leftMargin = 1; // margins are expressed in glyphs
 	static constexpr int decorationMargin = 1;
