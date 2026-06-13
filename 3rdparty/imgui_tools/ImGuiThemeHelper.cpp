@@ -138,8 +138,8 @@ void ImGuiThemeHelper::ApplyFileTypeColors() {
 //// CONFIGURATION ////////////////////////////////////
 ///////////////////////////////////////////////////////
 
-ez::xml::Nodes ImGuiThemeHelper::getXmlNodes(const std::string& vUserDatas) {
-    UNUSED(vUserDatas);
+ez::xml::Nodes ImGuiThemeHelper::getXmlNodes(const std::string& aUserDatas) {
+    UNUSED(aUserDatas);
 
     ez::xml::Node node("Styles");
 
@@ -220,16 +220,16 @@ ez::xml::Nodes ImGuiThemeHelper::getXmlNodes(const std::string& vUserDatas) {
     return {node};
 }
 
-bool ImGuiThemeHelper::setFromXmlNodes(const ez::xml::Node& vNode, const ez::xml::Node& vParent, const std::string& vUserDatas) {
-    UNUSED(vUserDatas);
-    const auto& strName = vNode.getName();
-    const auto& strParentName = vParent.getName();
-    const auto& strParentParentName = vParent.getName();
+bool ImGuiThemeHelper::setFromXmlNodes(const ez::xml::Node& aNode, const ez::xml::Node& aParent, const std::string& aUserDatas) {
+    UNUSED(aUserDatas);
+    const auto& strName = aNode.getName();
+    const auto& strParentName = aParent.getName();
+    const auto& strParentParentName = aParent.getName();
 
 #if defined(USE_IMGUI_FILE_DIALOG) && defined(EZ_TOOLS_VARIANT)
     if (strParentName == "FileTypes") {
-        std::string fileType = vNode.getAttribute("value");
-        std::string color = vNode.getAttribute("color");
+        std::string fileType = aNode.getAttribute("value");
+        std::string color = aNode.getAttribute("color");
         auto v4 = ez::fvariant(color).GetV4();
         m_CurrentTheme.fileTypeInfos[fileType] = IGFD::FileStyle(ImVec4(v4.x, v4.y, v4.z, v4.w));
 #ifdef NEW_SINGLETON
@@ -241,9 +241,9 @@ bool ImGuiThemeHelper::setFromXmlNodes(const ez::xml::Node& vNode, const ez::xml
 #endif // USE_IMGUI_FILE_DIALOG && EZ_TOOLS_VARIANT
 
 #ifdef USE_NODEGRAPH
-    const auto& strValue = vNode.getContent();
+    const auto& strValue = aNode.getContent();
     if (strParentName == "Graph_Styles") {
-        const auto att = vNode->FirstAttribute();
+        const auto att = aNode->FirstAttribute();
         if (att && std::string(att->Name()) == "value") {
             strValue = att->Value();
 
@@ -299,8 +299,8 @@ bool ImGuiThemeHelper::setFromXmlNodes(const ez::xml::Node& vNode, const ez::xml
 
     if (strParentName == "ImGui_Styles") {
 #ifdef EZ_TOOLS_VARIANT
-		if (vNode.isAttributeExist("value")) {
-            const auto strValue = vNode.getAttribute("value");
+		if (aNode.isAttributeExist("value")) {
+            const auto strValue = aNode.getAttribute("value");
             const auto colors = m_CurrentTheme.style.Colors;
 
             if (strName.find("ImGuiCol") != std::string::npos) {
