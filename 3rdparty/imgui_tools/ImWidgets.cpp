@@ -4170,6 +4170,60 @@ bool InputIntDefault(float vWidth, const char* vName, int* vVar, int vDefault, i
     return change;
 }
 
+bool InputIntDefaultStepper(
+    float vWidth,
+    const char* vName,
+    int32_t* vVar,
+    int32_t vDefault,
+    int32_t vStep,
+    int32_t vStepFast,
+    bool vShowResetButton) {
+    bool change = false;
+
+    const float padding = GetStyle().FramePadding.x;
+
+    float w = vWidth - padding * 2.0f;  // -24;
+
+    Text("%s", vName);
+    w -= GetItemRectSize().x;
+    SameLine(0, GetStyle().ItemInnerSpacing.x);
+    w -= GetItemRectSize().x;
+
+    if (vShowResetButton) {
+        change = ContrastedButton(BUTTON_LABEL_RESET, "Reset");
+        w -= GetItemRectSize().x;
+        if (change)
+            *vVar = vDefault;
+    }
+
+    SameLine(0, GetStyle().ItemInnerSpacing.x);
+    w -= GetItemRectSize().x;
+
+    PushID(++CustomStyle::pushId);
+    PushItemWidth(w);
+    change |= InputInt("##InputInt", vVar, 0.0, 0.0, ImGuiInputTextFlags_CharsScientific);
+    PopItemWidth();
+    PopID();
+
+    if (vStep > 0.0f) {
+        SameLine(0, GetStyle().ItemInnerSpacing.x);
+        if (ContrastedButton(BUTTON_LABEL_MINUS, nullptr, nullptr, 0.0f, ImVec2(0.0f, 0.0f))) {
+            *vVar -= GetIO().KeyCtrl ? vStepFast : vStep;
+            change = true;
+        }
+        SameLine(0, GetStyle().ItemInnerSpacing.x);
+        if (ContrastedButton(BUTTON_LABEL_PLUS, nullptr, nullptr, 0.0f, ImVec2(0.0f, 0.0f))) {
+            *vVar += GetIO().KeyCtrl ? vStepFast : vStep;
+            change = true;
+        }
+    }
+
+    if (IsItemActive() || IsItemHovered())
+        SetTooltip("%i", *vVar);
+
+    return change;
+}
+
 bool InputUIntDefault(float vWidth, const char* vName, uint32_t* vVar, uint32_t vDefault, uint32_t step, uint32_t step_fast) {
     bool change = false;
 

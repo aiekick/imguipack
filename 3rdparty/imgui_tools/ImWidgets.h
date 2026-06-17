@@ -964,10 +964,18 @@ IMGUI_API bool InputDoubleDefaultStepper(  //
 IMGUI_API bool InputIntDefault(  //
     float vWidth,
     const char* vName,
-    int* vVar,
-    int vDefault,
-    int step = 1,
-    int step_fast = 1);
+    int32_t* vVar,
+    int32_t vDefault,
+    int32_t step = 1,
+    int32_t step_fast = 1);
+IMGUI_API bool InputIntDefaultStepper(  //
+    float vWidth,
+    const char* vName,
+    int32_t* vVar,
+    int32_t vDefault,
+    int32_t vStep,
+    int32_t vStepFast,
+    bool vShowResetButton = true);
 IMGUI_API bool InputUIntDefault(  //
     float vWidth,
     const char* vName,
