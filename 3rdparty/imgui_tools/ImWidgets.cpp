@@ -4142,6 +4142,113 @@ bool InputDoubleDefaultStepper(
     return change;
 }
 
+bool InputIntDefaultStepper(
+    float vWidth,
+    const char* vName,
+    int32_t* vVar,
+    int32_t vDefault,
+    int32_t vStep,
+    int32_t vStepFast,
+    bool vShowResetButton) {
+    bool change = false;
+
+    float w = vWidth - GetStyle().FramePadding.x * 2.0f;  // -24;
+
+    Text("%s", vName);
+
+    if (vShowResetButton) {
+        change = ContrastedButton(BUTTON_LABEL_RESET, "Reset");
+        if (change)
+            *vVar = vDefault;
+    }
+
+    SameLine(0, GetStyle().ItemInnerSpacing.x);
+
+    w -= GetCursorPosX();
+
+    w -= 25.0f;  // button minus
+    w -= 25.0f;  // button plus
+
+    PushID(++CustomStyle::pushId);
+    PushItemWidth(w);
+    change |= InputInt("##InputInt", vVar, 0.0, 0.0, ImGuiInputTextFlags_CharsScientific);
+    PopItemWidth();
+    PopID();
+
+    if (vStep > 0.0f) {
+        SameLine(0, GetStyle().ItemInnerSpacing.x);
+        if (ContrastedButton(BUTTON_LABEL_MINUS, nullptr, nullptr, 0.0f, ImVec2(25.0f, 0.0f))) {
+            *vVar -= GetIO().KeyCtrl ? vStepFast : vStep;
+            change = true;
+        }
+        SameLine(0, GetStyle().ItemInnerSpacing.x);
+        if (ContrastedButton(BUTTON_LABEL_PLUS, nullptr, nullptr, 0.0f, ImVec2(25.0f, 0.0f))) {
+            *vVar += GetIO().KeyCtrl ? vStepFast : vStep;
+            change = true;
+        }
+    }
+
+    if (IsItemActive() || IsItemHovered()) {
+        SetTooltip("%i", *vVar);
+    }
+
+    return change;
+}
+
+bool InputUIntDefaultStepper(
+    float vWidth,
+    const char* vName,
+    uint32_t* vVar,
+    uint32_t vDefault,
+    uint32_t vStep,
+    uint32_t vStepFast,
+    bool vShowResetButton) {
+    bool change = false;
+
+    float w = vWidth - GetStyle().FramePadding.x * 2.0f;  // -24;
+
+    Text("%s", vName);
+
+    if (vShowResetButton) {
+        change = ContrastedButton(BUTTON_LABEL_RESET, "Reset");
+        if (change)
+            *vVar = vDefault;
+    }
+
+    SameLine(0, GetStyle().ItemInnerSpacing.x);
+
+    w -= GetCursorPosX();
+
+    w -= 25.0f;  // button minus
+    w -= 25.0f;  // button plus
+
+    PushID(++CustomStyle::pushId);
+    PushItemWidth(w);
+    change |=
+        InputScalar(vName, ImGuiDataType_U32, (void*)vVar, (void*)(vStep > 0 ? &vStep : NULL), (void*)(vStepFast > 0 ? &vStepFast : NULL), "%d", 0);
+    PopItemWidth();
+    PopID();
+
+    if (vStep > 0.0f) {
+        SameLine(0, GetStyle().ItemInnerSpacing.x);
+        if (ContrastedButton(BUTTON_LABEL_MINUS, nullptr, nullptr, 0.0f, ImVec2(25.0f, 0.0f))) {
+            *vVar -= GetIO().KeyCtrl ? vStepFast : vStep;
+            change = true;
+        }
+        SameLine(0, GetStyle().ItemInnerSpacing.x);
+        if (ContrastedButton(BUTTON_LABEL_PLUS, nullptr, nullptr, 0.0f, ImVec2(25.0f, 0.0f))) {
+            *vVar += GetIO().KeyCtrl ? vStepFast : vStep;
+            change = true;
+        }
+    }
+
+    if (IsItemActive() || IsItemHovered()) {
+        SetTooltip("%i", *vVar);
+    }
+
+    return change;
+}
+
 bool InputIntDefault(float vWidth, const char* vName, int* vVar, int vDefault, int step, int step_fast) {
     bool change = false;
 
@@ -4163,60 +4270,6 @@ bool InputIntDefault(float vWidth, const char* vName, int* vVar, int vDefault, i
     change |= InputInt(vName, vVar, step, step_fast);
     PopItemWidth();
     PopID();
-
-    if (IsItemActive() || IsItemHovered())
-        SetTooltip("%i", *vVar);
-
-    return change;
-}
-
-bool InputIntDefaultStepper(
-    float vWidth,
-    const char* vName,
-    int32_t* vVar,
-    int32_t vDefault,
-    int32_t vStep,
-    int32_t vStepFast,
-    bool vShowResetButton) {
-    bool change = false;
-
-    const float padding = GetStyle().FramePadding.x;
-
-    float w = vWidth - padding * 2.0f;  // -24;
-
-    Text("%s", vName);
-    w -= GetItemRectSize().x;
-    SameLine(0, GetStyle().ItemInnerSpacing.x);
-    w -= GetItemRectSize().x;
-
-    if (vShowResetButton) {
-        change = ContrastedButton(BUTTON_LABEL_RESET, "Reset");
-        w -= GetItemRectSize().x;
-        if (change)
-            *vVar = vDefault;
-    }
-
-    SameLine(0, GetStyle().ItemInnerSpacing.x);
-    w -= GetItemRectSize().x;
-
-    PushID(++CustomStyle::pushId);
-    PushItemWidth(w);
-    change |= InputInt("##InputInt", vVar, 0.0, 0.0, ImGuiInputTextFlags_CharsScientific);
-    PopItemWidth();
-    PopID();
-
-    if (vStep > 0.0f) {
-        SameLine(0, GetStyle().ItemInnerSpacing.x);
-        if (ContrastedButton(BUTTON_LABEL_MINUS, nullptr, nullptr, 0.0f, ImVec2(0.0f, 0.0f))) {
-            *vVar -= GetIO().KeyCtrl ? vStepFast : vStep;
-            change = true;
-        }
-        SameLine(0, GetStyle().ItemInnerSpacing.x);
-        if (ContrastedButton(BUTTON_LABEL_PLUS, nullptr, nullptr, 0.0f, ImVec2(0.0f, 0.0f))) {
-            *vVar += GetIO().KeyCtrl ? vStepFast : vStep;
-            change = true;
-        }
-    }
 
     if (IsItemActive() || IsItemHovered())
         SetTooltip("%i", *vVar);

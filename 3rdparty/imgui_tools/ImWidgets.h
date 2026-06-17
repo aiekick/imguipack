@@ -940,6 +940,20 @@ IMGUI_API bool InputDoubleDefault(  //
     bool vShowResetButton = true,
     double vStep = 0.0,
     double vStepFast = 0.0);
+IMGUI_API bool InputIntDefault(  //
+    float vWidth,
+    const char* vName,
+    int* vVar,
+    int vDefault,
+    int step = 1,
+    int step_fast = 1);
+IMGUI_API bool InputUIntDefault(  //
+    float vWidth,
+    const char* vName,
+    uint32_t* vVar,
+    uint32_t vDefault,
+    uint32_t step = 1U,
+    uint32_t step_fast = 1U);
 IMGUI_API bool InputFloatDefaultStepper(  //
     float vWidth,
     const char* vName,
@@ -961,28 +975,22 @@ IMGUI_API bool InputDoubleDefaultStepper(  //
     const char* vInputPrec = "%.3f",
     const char* vPopupPrec = "%.3f",
     bool vShowResetButton = true);
-IMGUI_API bool InputIntDefault(  //
-    float vWidth,
-    const char* vName,
-    int32_t* vVar,
-    int32_t vDefault,
-    int32_t step = 1,
-    int32_t step_fast = 1);
 IMGUI_API bool InputIntDefaultStepper(  //
     float vWidth,
     const char* vName,
-    int32_t* vVar,
-    int32_t vDefault,
-    int32_t vStep,
-    int32_t vStepFast,
+    int* vVar,
+    int vDefault,
+    int vStep,
+    int vStepFast,
     bool vShowResetButton = true);
-IMGUI_API bool InputUIntDefault(  //
+IMGUI_API bool InputUIntDefaultStepper(  //
     float vWidth,
     const char* vName,
     uint32_t* vVar,
     uint32_t vDefault,
-    uint32_t step = 1U,
-    uint32_t step_fast = 1U);
+    uint32_t vStep,
+    uint32_t vStepFast,
+    bool vShowResetButton = true);
 
 // ---------------------------------------------------------------------------
 // Layout primitives — horizontal / vertical containers + Spring.
