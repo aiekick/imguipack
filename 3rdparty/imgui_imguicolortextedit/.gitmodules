@@ -1,3 +1,0 @@
-[submodule "vendor/regex"]
-	path = vendor/regex
-	url = git@github.com:boostorg/regex.git

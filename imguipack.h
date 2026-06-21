@@ -140,14 +140,6 @@
 	#include <3rdparty/imgui_markdown/imgui_markdown.h>
 #endif
 
-#ifdef USE_IMGUI_COLOR_TEXT_EDIT
-	#include <3rdparty/imgui_imguicolortextedit/TextEditor.h>
-#endif
-
-#ifdef USE_IM_GRADIENT_HDR
-	#include <3rdparty/imgui_imgradienthdr/src/ImGradientHDR.h>
-#endif
-
 #ifdef USE_IMGUI_FILE_DIALOG
 	#include <3rdparty/imgui_imguifiledialog/ImGuiFileDialog.h>
 #endif

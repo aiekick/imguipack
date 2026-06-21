@@ -23,10 +23,7 @@ option(USE_IM_LAYOUT "Use ImLayout" ${DEFAULT_FLAG})
 option(USE_IM_GUIZMO "Use ImGuizmo" ${DEFAULT_FLAG})
 option(USE_IM_COOL_BAR "Use ImCoolBar" ${DEFAULT_FLAG})
 option(USE_IMGUI_MARKDOW "Use ImGuiMarkDown" ${DEFAULT_FLAG})
-option(USE_IM_GRADIENT_HDR "Use ImGradientHDR" ${DEFAULT_FLAG})
-option(USE_IMGUI_NODE_EDITOR "ImGuiNodeEditor" ${DEFAULT_FLAG})
 option(USE_IMGUI_FILE_DIALOG "Use ImGuiFileDialog" ${DEFAULT_FLAG})
-option(USE_IMGUI_COLOR_TEXT_EDIT "Use ImGuiColorTextEdit" ${DEFAULT_FLAG})
 option(USE_EMBEDDED_FRAME_PROFILER "Use EmbeddedFrameProfiler" ${DEFAULT_FLAG})
 
 option(IMGUIPACK_USE_STD_FILESYSTEM "Enable the use of std::filesystem in ImGuiFileDialog" ${DEFAULT_FLAG})
@@ -67,23 +64,6 @@ else()
 endif()
 
 #####################################################
-##### REGEX for ImGuiColorTextEdit
-#####################################################
-
-if (USE_IMGUI_COLOR_TEXT_EDIT)
-	message(STATUS "ImGuiColorTextEdit is using the library boost_regex")
-	set(BOOST_REGEX_LIBRARIES boost_regex)
-	set(BOOST_REGEX_STANDALONE ON CACHE BOOL "" FORCE)
-	set(BOOST_REGEX_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/regex/include)
-	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/regex EXCLUDE_FROM_ALL)
-	if(USE_SHARED_LIBS)
-		set_target_properties(boost_regex PROPERTIES FOLDER 3rdparty/Shared)
-	else()
-		set_target_properties(boost_regex PROPERTIES FOLDER 3rdparty/static)
-	endif()
-endif()
-
-#####################################################
 #####################################################
 
 set(CMAKE_CXX_STANDARD 17)
@@ -120,7 +100,7 @@ if (USE_IMPLOT)
 endif()
 
 #####################################################
-##### IMTOOLS
+##### IMCODE
 #####################################################
 
 if (USE_IM_CODE)
@@ -159,7 +139,7 @@ if (USE_IM_NODAL)
 endif()
 
 #####################################################
-##### IMNODAL
+##### IMLAYOUT
 #####################################################
 
 if (USE_IM_LAYOUT)
@@ -209,18 +189,6 @@ if (USE_IM_GENIE)
 endif()
 
 #####################################################
-##### IMGRADIENTHDR
-#####################################################
-
-if (USE_IM_GRADIENT_HDR)
-	message(STATUS "USE GRADIENT HDR")
-	file(GLOB IMGUI_IMGRADIENTHDR_SOURCES
-			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imgradienthdr/src/*.h
-			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imgradienthdr/src/*.cpp)
-	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ PREFIX pack FILES ${IMGUI_IMGRADIENTHDR_SOURCES})
-endif()
-
-#####################################################
 ##### IMGUIFILEDIALOG
 #####################################################
 
@@ -230,19 +198,6 @@ if (USE_IMGUI_FILE_DIALOG)
 			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imguifiledialog/*.h
 			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imguifiledialog/*.cpp)
 	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ PREFIX pack FILES ${IMGUI_IMGUIFILEDIALOG_SOURCES})
-endif()
-
-#####################################################
-##### IMGUINODEEDITOR
-#####################################################
-
-if (USE_IMGUI_NODE_EDITOR)
-	message(STATUS "USE IMGUI NODE EDITOR")
-	file(GLOB IMGUI_IMGUINODEEDITOR_SOURCES
-			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_node_editor/*.h
-			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_node_editor/*.inl
-			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_node_editor/*.cpp)
-	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ PREFIX pack FILES ${IMGUI_IMGUINODEEDITOR_SOURCES})
 endif()
 
 #####################################################
@@ -257,18 +212,6 @@ if (USE_IMGUI_MARKDOW)
 endif()
 
 #####################################################
-##### IMGUICOLORTEXTEDIT
-#####################################################
-
-if (USE_IMGUI_COLOR_TEXT_EDIT)
-	message(STATUS "USE IMGUI COLOR TEXT EDIT")
-	file(GLOB IMGUI_IMGUICOLORTEXTEDIT_SOURCES
-			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imguicolortextedit/*.h
-			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imguicolortextedit/*.cpp)
-	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ PREFIX pack FILES ${IMGUI_IMGUICOLORTEXTEDIT_SOURCES})
-endif()
-
-#####################################################
 ##### EMBEDDED_FRAME_PROFILER
 #####################################################
 
@@ -279,7 +222,6 @@ if (USE_EMBEDDED_FRAME_PROFILER)
 			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_embeddedframeprofiler/*.cpp)
 	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ PREFIX pack FILES ${EMBEDDED_FRAME_PROFILER_SOURCES})
 endif()
-
 
 #####################################################
 ##### IMGUIPACK
@@ -306,10 +248,7 @@ if (BUILD_SHARED_LIBS)
 		${IMGUI_IMCOOLBAR_SOURCES}
 		${IMGUI_IMGUIPACK_SOURCES}
 		${IMGUI_IMGUIMARKDONW_SOURCES}
-		${IMGUI_IMGRADIENTHDR_SOURCES}
 		${IMGUI_IMGUIFILEDIALOG_SOURCES}
-		${IMGUI_IMGUINODEEDITOR_SOURCES}
-		${IMGUI_IMGUICOLORTEXTEDIT_SOURCES}
 		${EMBEDDED_FRAME_PROFILER_SOURCES}
 	)
 	target_compile_definitions(${PROJECT} INTERFACE BUILD_IMGUI_PACK_SHARED_LIBS)
@@ -327,10 +266,7 @@ else()
 		${IMGUI_IMCOOLBAR_SOURCES}
 		${IMGUI_IMGUIPACK_SOURCES}
 		${IMGUI_IMGUIMARKDONW_SOURCES}
-		${IMGUI_IMGRADIENTHDR_SOURCES}
 		${IMGUI_IMGUIFILEDIALOG_SOURCES}
-		${IMGUI_IMGUINODEEDITOR_SOURCES}
-		${IMGUI_IMGUICOLORTEXTEDIT_SOURCES}
 		${EMBEDDED_FRAME_PROFILER_SOURCES}
 	)
 endif()
@@ -350,10 +286,7 @@ set(IMGUIPACK_INCLUDE_DIRS
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imguizmo/
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_markdown/
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imcoolbar/
-	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_node_editor/
-	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imgradienthdr/
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imguifiledialog/
-	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imguicolortextedit/
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_embeddedframeprofiler/
 )
 
@@ -397,17 +330,8 @@ endif()
 if (USE_IMGUI_MARKDOW)
 	target_compile_definitions(${PROJECT} PUBLIC USE_IMGUI_MARKDOW)
 endif()
-if (USE_IM_GRADIENT_HDR)
-	target_compile_definitions(${PROJECT} PUBLIC USE_IM_GRADIENT_HDR)
-endif()
-if (USE_IMGUI_NODE_EDITOR)
-	target_compile_definitions(${PROJECT} PUBLIC USE_IMGUI_NODE_EDITOR)
-endif()
 if (USE_IMGUI_FILE_DIALOG)
 	target_compile_definitions(${PROJECT} PUBLIC USE_IMGUI_FILE_DIALOG)
-endif()
-if (USE_IMGUI_COLOR_TEXT_EDIT)
-	target_compile_definitions(${PROJECT} PUBLIC USE_IMGUI_COLOR_TEXT_EDIT)
 endif()
 if (USE_EMBEDDED_FRAME_PROFILER)
 	target_compile_definitions(${PROJECT} PUBLIC USE_EMBEDDED_FRAME_PROFILER)

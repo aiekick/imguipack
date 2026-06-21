@@ -1,20 +1,20 @@
 ﻿/*
- * This file is part of cdpViewer.
+ * This file is part of app.
  *
  * Copyright (C) 2025 Stephane Cuillerdier (aka aiekick)
  *
- * cdpViewer is free software: you can redistribute it and/or modify
+ * app is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
  * by the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * cdpViewer is distributed in the hope that it will be useful,
+ * app is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with cdpViewer.  If not, see <https://www.gnu.org/licenses/>.
+ * along with app.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "app.h"
@@ -79,7 +79,7 @@ static void glfw_window_drop_callback(GLFWwindow* ap_win, int a_count, const cha
 bool App::init(int argc, char** argv) {
     mp_app = std::make_unique<ez::App>(argc, argv);
     printf("-----------\n");
-    printf("[[ %s Beta %s ]]\n", cdpViewer_Label, cdpViewer_BuildId);
+    printf("[[ %s Beta %s ]]\n", app_Label, app_BuildId);
     auto loc = std::setlocale(LC_ALL, ".UTF8");
     if (!loc) {
         printf("setlocale fail to apply with this compiler. it seems the unicode will be NOK\n");
@@ -120,7 +120,7 @@ void App::closeApp() {
 }
 
 void App::setAppTitle(const std::string& aTitle) {
-    std::string title = ez::str::toStr("%s Beta %s", cdpViewer_Label, cdpViewer_BuildId);
+    std::string title = ez::str::toStr("%s Beta %s", app_Label, app_BuildId);
     if (!aTitle.empty()) {
         title = ez::str::toStr("%s - %s", title.c_str(), aTitle.c_str());
     }
@@ -220,7 +220,7 @@ bool App::m_initGlfw() {
 #endif
 
     // Create window with graphics context
-    mp_mainWindow = glfwCreateWindow(1280, 720, cdpViewer_Label, nullptr, nullptr);
+    mp_mainWindow = glfwCreateWindow(1280, 720, app_Label, nullptr, nullptr);
     if (mp_mainWindow == nullptr) {
         std::cout << "Fail to create the window" << std::endl;
         return false;
@@ -237,6 +237,8 @@ bool App::m_initGlfw() {
 
     glfwSetWindowCloseCallback(mp_mainWindow, glfw_window_close_callback);
     glfwSetDropCallback(mp_mainWindow, glfw_window_drop_callback);
+
+    setAppTitle("");
 
     return true;
 }
