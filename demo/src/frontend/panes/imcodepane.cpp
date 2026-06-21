@@ -1,5 +1,8 @@
 #include "imcodepane.h"
 
+// monospace ImFont for the editor demo, created in App::m_initImgui (app.cpp)
+ImFont* GImCodeDemoMonoFont = nullptr;
+
 namespace Panes {
 
 bool ImCodePane::init() {
@@ -21,6 +24,27 @@ bool ImCodePane::drawPanes(bool* apOpened, LayoutPaneUserDatas apUserDatas) {
             else
                 flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_MenuBar;
 #endif
+            // demo-only: a single editor instance, lazily initialized (step 1 wiring)
+            static const std::string kDemoCode =
+                "// ImCode demo\n"
+                "#include <cstdio>\n"
+                "\n"
+                "int main() {\n"
+                "    for (int i = 0; i < 10; ++i) {\n"
+                "        printf(\"hello %d\\n\", i);\n"
+                "    }\n"
+                "    return 0;\n"
+                "}\n";
+            static im::Code s_editor;
+            static bool s_editorReady = false;
+            if (!s_editorReady) {
+                s_editor.init();
+                s_editor.getStyle().font = GImCodeDemoMonoFont;
+                s_editor.setLanguage("cpp");
+                s_editor.setText(kDemoCode.data(), (uint64_t)kDemoCode.size());
+                s_editorReady = true;
+            }
+            s_editor.Render("##imcode_editor", ImGui::GetContentRegionAvail());
         }
         ImGui::End();
     }

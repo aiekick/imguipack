@@ -48,7 +48,8 @@
 #include <3rdparty/imgui_docking/backends/imgui_impl_glfw.h>
 
 // we include the cpp just for embedded fonts
-#include <resources/RobotoMedium.h>
+#include <resources/fonts/roboto.h>
+#include <resources/fonts/code.h>
 
 static void glfw_error_callback(int aError, const char* aDescription) {
     const std::string desc{aDescription};
@@ -268,9 +269,14 @@ bool App::m_initImgui() {
         style.WindowRounding = 0.0f;
         style.Colors[ImGuiCol_WindowBg].w = 1.0f;
     }
-    ImFont* robotoFont = ImGui::GetIO().Fonts->AddFontFromMemoryCompressedBase85TTF(FONT_ICON_BUFFER_NAME_RM, 15.0f);
+    ImFont* robotoFont = ImGui::GetIO().Fonts->AddFontFromMemoryCompressedBase85TTF(FONT_BUFFER_NAME_RM, 15.0f);
     assert(robotoFont != nullptr);
-    (void)robotoFont;
+    ImFont* codeFont = ImGui::GetIO().Fonts->AddFontFromMemoryCompressedBase85TTF(FONT_BUFFER_NAME_CODE, 15.0f);
+    assert(codeFont != nullptr);
+    // ImCode editor uses the monospace code font; Roboto stays the UI default
+    extern ImFont* GImCodeDemoMonoFont;  // defined in imcodepane.cpp
+    GImCodeDemoMonoFont = codeFont;
+    ImGui::GetIO().FontDefault = robotoFont;
 
     return ImGui_ImplGlfw_InitForOpenGL(mp_mainWindow, true) && ImGui_ImplOpenGL3_Init(m_glslVersion);
 }

@@ -19,10 +19,8 @@ limitations under the License.
 
 #pragma once
 
-extern const unsigned int FONT_ICON_BUFFER_SIZE_RM;
-extern const char FONT_ICON_BUFFER_NAME_RM[];
+extern const unsigned int RM_compressed_data_base85_size;
+extern const char RM_compressed_data_base85[];
 
-#define ICON_MIN_RM 0xfffd
-#define ICON_MAX_RM 0xfffd
-
-#define ICON_RM_ u8"\ufffd"
+#define FONT_BUFFER_NAME_RM RM_compressed_data_base85
+#define FONT_BUFFER_SIZE_RM RM_compressed_data_base85_size

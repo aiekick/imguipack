@@ -132,6 +132,10 @@
 	#include <3rdparty/imgui_imnodal/ImNodal.h>
 #endif
 
+#ifdef USE_IM_CODE
+	#include <3rdparty/imgui_imcode/ImCode.h>
+#endif
+
 #ifdef USE_IMGUI_MARKDOW
 	#include <3rdparty/imgui_markdown/imgui_markdown.h>
 #endif
