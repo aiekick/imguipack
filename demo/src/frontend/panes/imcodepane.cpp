@@ -6,6 +6,23 @@ ImFont* GImCodeDemoMonoFont = nullptr;
 namespace Panes {
 
 bool ImCodePane::init() {
+    const std::string code = R"(// ImCode demo
+#include <cstdio>
+
+int main() {
+    for (int i = 0; i < 10; ++i) {
+        printf(\"hello %d\\n\", i);
+    }
+    return 0;
+};
+)";
+    m_editor.init();
+    m_editor.getStyle().font = GImCodeDemoMonoFont;
+    m_editor.setLanguage("cpp");
+    m_editor.setMarkers({{3, IM_COL32(220, 80, 80, 255), "breakpoint", 0}});
+    m_editor.setDecorations({{{{4, 8}, {4, 11}}, im::Code::DecoKind::Squiggle, IM_COL32(90, 170, 255, 255), "the loop index"}});
+    m_editor.setDiagnostics({{{{1, 0}, {1, 17}}, im::Code::Severity::Warning, "unused include"}});
+    m_editor.setText(code.data(), (uint64_t)code.size());
     return true;
 }
 
@@ -24,27 +41,7 @@ bool ImCodePane::drawPanes(bool* apOpened, LayoutPaneUserDatas apUserDatas) {
             else
                 flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_MenuBar;
 #endif
-            // demo-only: a single editor instance, lazily initialized (step 1 wiring)
-            static const std::string kDemoCode =
-                "// ImCode demo\n"
-                "#include <cstdio>\n"
-                "\n"
-                "int main() {\n"
-                "    for (int i = 0; i < 10; ++i) {\n"
-                "        printf(\"hello %d\\n\", i);\n"
-                "    }\n"
-                "    return 0;\n"
-                "}\n";
-            static im::Code s_editor;
-            static bool s_editorReady = false;
-            if (!s_editorReady) {
-                s_editor.init();
-                s_editor.getStyle().font = GImCodeDemoMonoFont;
-                s_editor.setLanguage("cpp");
-                s_editor.setText(kDemoCode.data(), (uint64_t)kDemoCode.size());
-                s_editorReady = true;
-            }
-            s_editor.Render("##imcode_editor", ImGui::GetContentRegionAvail());
+            m_editor.Render("##imcode_editor", ImGui::GetContentRegionAvail());
         }
         ImGui::End();
     }

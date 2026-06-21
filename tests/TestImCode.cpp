@@ -291,6 +291,57 @@ bool TestImCode_LexerPlain() {
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Find: next match navigation (wraps)
+// ---------------------------------------------------------------------------
+bool TestImCode_FindNext() {
+    Code editor;
+    editor.init();
+    setContent(editor, "abc abc abc");
+    editor.setSearch("abc", Code::FindFlags_None);
+    CTEST_ASSERT(editor.searchMatchCount() == 3);
+
+    editor.setCursor(Code::Pos{0, 0});
+    CTEST_ASSERT(editor.findNext());
+    CTEST_ASSERT(editor.getSelectedText() == "abc");
+    CTEST_ASSERT(editor.getSelection().start.column == 0);
+    CTEST_ASSERT(editor.findNext());
+    CTEST_ASSERT(editor.getSelection().start.column == 4);
+    CTEST_ASSERT(editor.findNext());
+    CTEST_ASSERT(editor.getSelection().start.column == 8);
+    CTEST_ASSERT(editor.findNext());  // wraps to the first match
+    CTEST_ASSERT(editor.getSelection().start.column == 0);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Find: case-insensitive flag
+// ---------------------------------------------------------------------------
+bool TestImCode_FindCaseInsensitive() {
+    Code editor;
+    editor.init();
+    setContent(editor, "Foo foo FOO");
+    editor.setSearch("foo", Code::FindFlags_None);
+    CTEST_ASSERT(editor.searchMatchCount() == 1);  // exact case only
+    editor.setSearch("foo", Code::FindFlags_CaseInsensitive);
+    CTEST_ASSERT(editor.searchMatchCount() == 3);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Replace all
+// ---------------------------------------------------------------------------
+bool TestImCode_ReplaceAll() {
+    Code editor;
+    editor.init();
+    setContent(editor, "a x a x a");
+    editor.setSearch("x", Code::FindFlags_None);
+    const int32_t count = editor.replaceAll("YY");
+    CTEST_ASSERT(count == 2);
+    CTEST_ASSERT(editor.getText() == "a YY a YY a");
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
@@ -311,6 +362,9 @@ bool TestImCode(const std::string& vTest) {
     else IfTestExist(TestImCode_LexerLua);
     else IfTestExist(TestImCode_LexerSql);
     else IfTestExist(TestImCode_LexerPlain);
+    else IfTestExist(TestImCode_FindNext);
+    else IfTestExist(TestImCode_FindCaseInsensitive);
+    else IfTestExist(TestImCode_ReplaceAll);
     return false;
 }
 
