@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <array>
+#include <vector>
 
 using namespace im;
 
@@ -24,6 +25,13 @@ using namespace im;
 
 static void setContent(Code& aEditor, const std::string& aText) {
     aEditor.setText(aText.data(), (uint64_t)aText.size());
+}
+
+static int32_t tokenColorAt(const std::vector<Code::Token>& aTokens, int32_t aColumn) {
+    for (size_t i = 0; i < aTokens.size(); ++i) {
+        if (aTokens[i].startColumn == aColumn) return aTokens[i].color;
+    }
+    return -1;
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +177,120 @@ bool TestImCode_Indent() {
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Lexer: C / C++ (classification + cross-line block comment)
+// ---------------------------------------------------------------------------
+bool TestImCode_LexerCpp() {
+    Code editor;
+    editor.init();
+    editor.setLanguage("cpp");
+    std::vector<Code::Token> tokens;
+
+    setContent(editor, "int x = 42; // hi");
+    editor.getLineTokens(0, tokens);
+    CTEST_ASSERT(tokenColorAt(tokens, 0) == Code::Col_Type);        // int
+    CTEST_ASSERT(tokenColorAt(tokens, 4) == Code::Col_Identifier);  // x
+    CTEST_ASSERT(tokenColorAt(tokens, 8) == Code::Col_Number);      // 42
+    CTEST_ASSERT(tokenColorAt(tokens, 12) == Code::Col_Comment);    // // hi
+
+    // block comment spanning two lines: the lexer state must carry over
+    setContent(editor, "/* a\nb */ int");
+    editor.getLineTokens(0, tokens);
+    CTEST_ASSERT(!tokens.empty() && tokens[0].color == Code::Col_Comment);
+    editor.getLineTokens(1, tokens);
+    bool hasComment = false;
+    bool hasType = false;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (tokens[i].color == Code::Col_Comment) hasComment = true;
+        if (tokens[i].color == Code::Col_Type) hasType = true;
+    }
+    CTEST_ASSERT(hasComment && hasType);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lexer: GLSL (same C-like structure, different vocabulary)
+// ---------------------------------------------------------------------------
+bool TestImCode_LexerGlsl() {
+    Code editor;
+    editor.init();
+    editor.setLanguage("glsl");
+    std::vector<Code::Token> tokens;
+
+    setContent(editor, "uniform vec3 color;");
+    editor.getLineTokens(0, tokens);
+    CTEST_ASSERT(tokenColorAt(tokens, 0) == Code::Col_Keyword);      // uniform
+    CTEST_ASSERT(tokenColorAt(tokens, 8) == Code::Col_Type);         // vec3
+    CTEST_ASSERT(tokenColorAt(tokens, 13) == Code::Col_Identifier);  // color
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lexer: Lua (-- line comment, keyword, multi-line long comment)
+// ---------------------------------------------------------------------------
+bool TestImCode_LexerLua() {
+    Code editor;
+    editor.init();
+    editor.setLanguage("lua");
+    std::vector<Code::Token> tokens;
+
+    setContent(editor, "local x = 42 -- note");
+    editor.getLineTokens(0, tokens);
+    CTEST_ASSERT(tokenColorAt(tokens, 0) == Code::Col_Keyword);     // local
+    CTEST_ASSERT(tokenColorAt(tokens, 6) == Code::Col_Identifier);  // x
+    CTEST_ASSERT(tokenColorAt(tokens, 13) == Code::Col_Comment);    // -- note
+
+    // long comment --[[ ... ]] spanning two lines
+    setContent(editor, "--[[ c\nd ]] local");
+    editor.getLineTokens(0, tokens);
+    CTEST_ASSERT(!tokens.empty() && tokens[0].color == Code::Col_Comment);
+    editor.getLineTokens(1, tokens);
+    bool hasComment = false;
+    bool hasKeyword = false;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (tokens[i].color == Code::Col_Comment) hasComment = true;
+        if (tokens[i].color == Code::Col_Keyword) hasKeyword = true;
+    }
+    CTEST_ASSERT(hasComment && hasKeyword);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lexer: SQL (case-insensitive keywords)
+// ---------------------------------------------------------------------------
+bool TestImCode_LexerSql() {
+    Code editor;
+    editor.init();
+    editor.setLanguage("sql");
+    std::vector<Code::Token> tokens;
+
+    setContent(editor, "select id from users; -- q");
+    editor.getLineTokens(0, tokens);
+    CTEST_ASSERT(tokenColorAt(tokens, 0) == Code::Col_Keyword);   // select (lowercase)
+    CTEST_ASSERT(tokenColorAt(tokens, 10) == Code::Col_Keyword);  // from
+    CTEST_ASSERT(tokenColorAt(tokens, 22) == Code::Col_Comment);  // -- q
+
+    setContent(editor, "SELECT");  // uppercase colorizes the same
+    editor.getLineTokens(0, tokens);
+    CTEST_ASSERT(tokenColorAt(tokens, 0) == Code::Col_Keyword);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lexer: unsupported language -> plain text (no tokens)
+// ---------------------------------------------------------------------------
+bool TestImCode_LexerPlain() {
+    Code editor;
+    editor.init();
+    std::vector<Code::Token> tokens;
+
+    setContent(editor, "int x");
+    editor.setLanguage("python");
+    editor.getLineTokens(0, tokens);
+    CTEST_ASSERT(tokens.empty());
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
@@ -184,6 +306,11 @@ bool TestImCode(const std::string& vTest) {
     else IfTestExist(TestImCode_Selection);
     else IfTestExist(TestImCode_UndoRedo);
     else IfTestExist(TestImCode_Indent);
+    else IfTestExist(TestImCode_LexerCpp);
+    else IfTestExist(TestImCode_LexerGlsl);
+    else IfTestExist(TestImCode_LexerLua);
+    else IfTestExist(TestImCode_LexerSql);
+    else IfTestExist(TestImCode_LexerPlain);
     return false;
 }
 
