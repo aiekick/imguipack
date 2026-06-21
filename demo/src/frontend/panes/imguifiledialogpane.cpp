@@ -21,7 +21,6 @@ bool ImGuiFileDialogPane::drawPanes(bool* apOpened, LayoutPaneUserDatas apUserDa
             else
                 flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_MenuBar;
 #endif
-            Models::Model::ref().displayImGuiFileDialogPane();
         }
         ImGui::End();
     }

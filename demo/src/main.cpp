@@ -43,11 +43,12 @@ int main(int argc, char** argv) {
     ez::Log::initSingleton();
 
     try {
-        App app;
-        if (app.init(argc, argv)) {
-            app.run();
-            app.unit();
+        App::initSingleton();
+        if (App::ref().init(argc, argv)) {
+            App::ref().run();
+            App::ref().unit();
         }
+        App::unitSingleton();
     } catch (const std::exception& e) {
         LogVarLightInfo("Exception %s", e.what());
         res = EXIT_FAILURE;

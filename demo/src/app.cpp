@@ -86,8 +86,8 @@ bool App::init(int argc, char** argv) {
     bool ret = true;
     ret &= m_initGlfw();
     ret &= m_initImgui();
-    Backend::initSingleton(*this);
-    Frontend::initSingleton(*this);
+    Backend::initSingleton();
+    Frontend::initSingleton();
     ret &= Backend::ref().init();
     ret &= Frontend::ref().init();
     LoadConfigFile("config.xml", "app");

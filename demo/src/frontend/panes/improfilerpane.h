@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_EMBEDDED_FRAME_PROFILER
+
 #include <frontend/panes/abstract/apane.h>
 
 namespace Panes {
@@ -17,3 +19,5 @@ public:
 };
 
 }  // namespace pane
+
+#endif  // USE_EMBEDDED_FRAME_PROFILER

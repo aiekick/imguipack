@@ -21,3 +21,6 @@
 [submodule "3rdparty/imgui_imlayout"]
 	path = 3rdparty/imgui_imlayout
 	url = https://github.com/aiekick/ImLayout.git
+[submodule "3rdparty/imgui_imcode"]
+	path = 3rdparty/imgui_imcode
+	url = https://github.com/aiekick/ImCode.git

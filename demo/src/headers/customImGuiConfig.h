@@ -10,5 +10,4 @@
 
 #include <memory>          /* unique_ptr in ImGuiThemeHelper / ImLayout */
 
-#include <ezlibs/ezTools.hpp>
 #include <ezlibs/ezXmlConfig.hpp>

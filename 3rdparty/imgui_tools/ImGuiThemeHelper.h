@@ -19,6 +19,7 @@
 
 #include <imguipack.h>
 
+#include <memory>
 #include <string>
 #include <map>
 

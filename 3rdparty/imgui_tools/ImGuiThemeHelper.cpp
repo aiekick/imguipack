@@ -139,7 +139,7 @@ void ImGuiThemeHelper::ApplyFileTypeColors() {
 ///////////////////////////////////////////////////////
 
 ez::xml::Nodes ImGuiThemeHelper::getXmlNodes(const std::string& aUserDatas) {
-    UNUSED(aUserDatas);
+    (void)(aUserDatas);
 
     ez::xml::Node node("Styles");
 
@@ -221,7 +221,7 @@ ez::xml::Nodes ImGuiThemeHelper::getXmlNodes(const std::string& aUserDatas) {
 }
 
 bool ImGuiThemeHelper::setFromXmlNodes(const ez::xml::Node& aNode, const ez::xml::Node& aParent, const std::string& aUserDatas) {
-    UNUSED(aUserDatas);
+    (void)(aUserDatas);
     const auto& strName = aNode.getName();
     const auto& strParentName = aParent.getName();
     const auto& strParentParentName = aParent.getName();

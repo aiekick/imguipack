@@ -14,7 +14,9 @@
 #include <frontend/panes/imcodepane.h>
 #include <frontend/panes/imnodalpane.h>
 #include <frontend/panes/consolepane.h>
+#ifdef USE_EMBEDDED_FRAME_PROFILER
 #include <frontend/panes/improfilerpane.h>
+#endif // USE_EMBEDDED_FRAME_PROFILER
 #include <frontend/panes/imguifiledialogpane.h>
 
 #define MESSAGING_CODE_INFOS 0
@@ -34,13 +36,36 @@ bool Frontend::init() {
     Panes::ConsolePane::initSingleton();
     Panes::ImCodePane::initSingleton();
     Panes::ImNodalPane::initSingleton();
+#ifdef USE_EMBEDDED_FRAME_PROFILER
     Panes::ImProfilerPane::initSingleton();
+#endif  // USE_EMBEDDED_FRAME_PROFILER
     Panes::ImGuiFileDialogPane::initSingleton();
-    ImLayout::ref().addPane(LayoutPaneInfos(Panes::ConsolePane::ref(), "Console").setMenu("Console").setDisposalSide("BOTTOM", 0.5f));
-    ImLayout::ref().addPane(LayoutPaneInfos(Panes::ImCodePane::ref(), "ImCode").setMenu("ImCode").setDisposalSide("RIGHT", 0.3f).setDefaultOpened(true));
-    ImLayout::ref().addPane(LayoutPaneInfos(Panes::ImNodalPane::ref(), "ImNodal").setMenu("ImNodal").setDisposalSide("BOTTOM", 0.5f));
-    ImLayout::ref().addPane(LayoutPaneInfos(Panes::ImProfilerPane::ref(), "ImProfiler").setMenu("ImProfiler").setDisposalSide("RIGHT", 0.3f));
-    ImLayout::ref().addPane(LayoutPaneInfos(Panes::ImGuiFileDialogPane::ref(), "ImGuiFileDialog").setMenu("ImGuiFileDialog").setDisposalSide("LEFT", 0.3f).setDefaultOpened(true));
+    ImLayout::ref().addPane(                                   //
+        LayoutPaneInfos(Panes::ImNodalPane::ref(), "ImNodal")  //
+            .setMenu("ImNodal")
+            .setDisposalCentral()
+            .setDefaultOpened(true)
+            .setDefaultFocused(true));
+    ImLayout::ref().addPane(                                 //
+        LayoutPaneInfos(Panes::ImCodePane::ref(), "ImCode")  //
+            .setMenu("ImCode")
+            .setDisposalCentral()
+            .setDefaultOpened(true)
+            .setDefaultFocused(true));
+#ifdef USE_EMBEDDED_FRAME_PROFILER
+    ImLayout::ref().addPane(                                         //
+        LayoutPaneInfos(Panes::ImProfilerPane::ref(), "ImProfiler")  //
+            .setMenu("ImProfiler")
+            .setDisposalSide("RIGHT", 0.3f));
+#endif  // USE_EMBEDDED_FRAME_PROFILER
+    ImLayout::ref().addPane(                                                   //
+        LayoutPaneInfos(Panes::ImGuiFileDialogPane::ref(), "ImGuiFileDialog")  //
+            .setMenu("ImGuiFileDialog")
+            .setDisposalSide("LEFT", 0.3f));
+    ImLayout::ref().addPane(                                   //
+        LayoutPaneInfos(Panes::ConsolePane::ref(), "Console")  //
+            .setMenu("Console")
+            .setDisposalSide("BOTTOM", 0.5f));
     Messaging::initSingleton();
     Messaging::ref().AddCategory(MESSAGING_CODE_INFOS, "Infos(s)", MESSAGING_LABEL_INFOS, ImVec4(0.0f, 0.8f, 0.0f, 1.0f));
     Messaging::ref().AddCategory(MESSAGING_CODE_WARNINGS, "Warnings(s)", MESSAGING_LABEL_WARNINGS, ImVec4(0.8f, 0.8f, 0.0f, 1.0f));
@@ -57,7 +82,9 @@ bool Frontend::init() {
 void Frontend::unit() {
     ImLayout::ref().unitPanes();
     Panes::ImGuiFileDialogPane::unitSingleton();
+#ifdef USE_EMBEDDED_FRAME_PROFILER
     Panes::ImProfilerPane::unitSingleton();
+#endif  // USE_EMBEDDED_FRAME_PROFILER
     Panes::ImNodalPane::unitSingleton();
     Panes::ImCodePane::unitSingleton();
     Panes::ConsolePane::unitSingleton();

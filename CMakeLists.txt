@@ -2,11 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 set(PROJECT imguipack)
 
-enable_language(C CXX)
-
 project(
 	${PROJECT} 
-	LANGUAGES CXX
+	LANGUAGES C CXX
 )
 
 set(DEFAULT_FLAG OFF)
@@ -17,6 +15,7 @@ endif()
 option(USE_NEW_SINGLETON "Use new sigleton" ON)
 
 option(USE_IMPLOT "Use ImPlot" ${DEFAULT_FLAG})
+option(USE_IM_CODE "Use ImCode" ${DEFAULT_FLAG})
 option(USE_IM_TOOLS "Use ImTools" ${DEFAULT_FLAG})
 option(USE_IM_GENIE "Use ImGenie" ${DEFAULT_FLAG})
 option(USE_IM_NODAL "Use ImNodal" ${DEFAULT_FLAG})
@@ -117,6 +116,19 @@ if (USE_IMPLOT)
 			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_implot/*.h
 			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_implot/*.cpp)
 	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ PREFIX pack FILES ${IMGUI_IMPLOT_SOURCES})
+endif()
+
+#####################################################
+##### IMTOOLS
+#####################################################
+
+if (USE_IM_CODE)
+	message(STATUS "USE IM CODE")
+	file(GLOB IMGUI_IMCODE_SOURCES
+			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imcode/*.h
+			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imcode/*.hpp
+			${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imcode/*.cpp)
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ PREFIX pack FILES ${IMGUI_IMCODE_SOURCES})
 endif()
 
 #####################################################
@@ -283,6 +295,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/ PREFIX header FILES ${IMGUI_IMGUI
 if (BUILD_SHARED_LIBS)
 	add_library(${PROJECT} 
 		${IMGUI_SOURCES} 
+		${IMGUI_IMCODE_SOURCES}
 		${IMGUI_IMPLOT_SOURCES}
 		${IMGUI_IMNODAL_SOURCES}
 		${IMGUI_IMTOOLS_SOURCES}
@@ -303,6 +316,7 @@ if (BUILD_SHARED_LIBS)
 else()
 	add_library(${PROJECT} STATIC 
 		${IMGUI_SOURCES} 
+		${IMGUI_IMCODE_SOURCES}
 		${IMGUI_IMPLOT_SOURCES}
 		${IMGUI_IMNODAL_SOURCES}
 		${IMGUI_IMTOOLS_SOURCES}
@@ -325,6 +339,7 @@ set(IMGUIPACK_INCLUDE_DIRS
 	${BOOST_REGEX_INCLUDE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/
+	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imcode/
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_tools/
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_implot/
 	${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/imgui_imnodal/
@@ -356,6 +371,9 @@ endif()
 
 if (USE_IMPLOT)
 	target_compile_definitions(${PROJECT} PUBLIC USE_IMPLOT)
+endif()
+if (USE_IM_CODE)
+	target_compile_definitions(${PROJECT} PUBLIC USE_IM_CODE)
 endif()
 if (USE_IM_TOOLS)
 	target_compile_definitions(${PROJECT} PUBLIC USE_IM_TOOLS)
@@ -407,9 +425,11 @@ target_link_libraries(${PROJECT}
 
 set_target_properties(${PROJECT} PROPERTIES OUTPUT_NAME "imguipack")
 
-set(IMGUIPACK_INCLUDE_DIRS ${IMGUIPACK_INCLUDE_DIRS} PARENT_SCOPE)
-set(IMGUIPACK_LIBRARIES ${PROJECT} PARENT_SCOPE)
-set(FREETYPE_LIBRARIES ${FREETYPE_LIBRARIES} PARENT_SCOPE)
+if (NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}) 
+	set(IMGUIPACK_INCLUDE_DIRS ${IMGUIPACK_INCLUDE_DIRS} PARENT_SCOPE)
+	set(IMGUIPACK_LIBRARIES ${PROJECT} PARENT_SCOPE)
+	set(FREETYPE_LIBRARIES ${FREETYPE_LIBRARIES} PARENT_SCOPE)
+endif()
 
 install(TARGETS ${PROJECT} RUNTIME DESTINATION / COMPONENT APP_LIBS_${${PROJECT}_LIBRARIES})
 install(TARGETS ${FREETYPE_LIBRARIES} RUNTIME DESTINATION / COMPONENT APP_LIBS_${FREETYPE_LIBRARIES})

@@ -28,6 +28,7 @@
 	#if defined(imguipack_EXPORTS)
 		#define IGFD_API __declspec(dllexport)
 		#define IMGUI_API __declspec(dllexport)
+		#define IMCODE_API __declspec(dllexport)
 		#define IMPLOT_API __declspec(dllexport)
 		#define IMGENIE_API __declspec(dllexport)
 		#define IMNODAL_API __declspec(dllexport)
@@ -38,6 +39,7 @@
 	#elif defined(BUILD_IMGUI_PACK_SHARED_LIBS)
 		#define IGFD_API __declspec(dllimport)
 		#define IMGUI_API __declspec(dllimport)
+		#define IMCODE_API __declspec(dllimport)
 		#define IMPLOT_API __declspec(dllimport)
 		#define IMGENIE_API __declspec(dllimport)
 		#define IMNODAL_API __declspec(dllimport)
@@ -48,6 +50,7 @@
 	#else
 		#define IGFD_API
 		#define IMGUI_API
+		#define IMCODE_API
 		#define IMPLOT_API
 		#define IMGENIE_API
 		#define IMNODAL_API
@@ -59,6 +62,7 @@
 #else
 	#define IGFD_API
 	#define IMGUI_API
+	#define IMCODE_API
 	#define IMPLOT_API
 	#define IMGENIE_API
 	#define IMNODAL_API

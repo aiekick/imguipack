@@ -4,7 +4,7 @@ set(PROJECT Demo)
 
 project(${PROJECT} LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
@@ -46,20 +46,21 @@ endif ()
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 
-add_definitions(
-    -DNEW_SINGLETON
-    -DOPENGL_LOADER=<glad/glad.h>
-    -DUSE_DECORATIONS_FOR_RESIZE_CHILD_WINDOWS
-    -DIMGUI_USER_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/src/headers/customImGuiConfig.h"
-    -DCUSTOM_IMGUIFILEDIALOG_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/src/headers/customImGuiFileDialogConfig.h"
-)
+function(set_definitions TARGET_NAME)
+	if(TARGET ${TARGET_NAME})
+		target_compile_definitions(${TARGET_NAME} PRIVATE
+			-DNEW_SINGLETON
+			-DOPENGL_LOADER=<glad/glad.h>
+			-DUSE_DECORATIONS_FOR_RESIZE_CHILD_WINDOWS
+			-DIMGUI_USER_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/src/headers/customImGuiConfig.h"
+			-DCUSTOM_IMGUIFILEDIALOG_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/src/headers/customImGuiFileDialogConfig.h"
+		)
+		if(MSVC)
+			set_property(TARGET ${TARGET_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+		endif()
+	endif()
+endfunction()
 
-set_target_properties(imguipack PROPERTIES FOLDER 3rdparty)
-set_target_properties(freetype PROPERTIES FOLDER 3rdparty)
-if(TARGET boost_regex)
-	set_target_properties(boost_regex PROPERTIES FOLDER 3rdparty)
-endif()
-	
 include(FetchContent)
 
 include(cmake/glad.cmake)
@@ -68,19 +69,39 @@ include(cmake/glfw.cmake)
 file(GLOB_RECURSE SRC_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.*)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX src FILES ${SRC_SOURCES})
 
+file(GLOB_RECURSE CMAKE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/*.*)
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/cmake PREFIX cmake FILES ${CMAKE_SOURCES})
+
 file(GLOB IMGUI_IMPL_SOURCES 
-	${CMAKE_SOURCE_DIR}/3rdparty/imguipack/3rdparty/imgui_docking/backends/imgui_impl_glfw.cpp
-	${CMAKE_SOURCE_DIR}/3rdparty/imguipack/3rdparty/imgui_docking/backends/imgui_impl_glfw.h
-	${CMAKE_SOURCE_DIR}/3rdparty/imguipack/3rdparty/imgui_docking/backends/imgui_impl_opengl3.cpp
-	${CMAKE_SOURCE_DIR}/3rdparty/imguipack/3rdparty/imgui_docking/backends/imgui_impl_opengl3.h
-	${CMAKE_SOURCE_DIR}/3rdparty/imguipack/3rdparty/imgui_docking/misc/freetype/imgui_freetype.cpp
-	${CMAKE_SOURCE_DIR}/3rdparty/imguipack/3rdparty/imgui_docking/misc/freetype/imgui_freetype.h)
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui_docking/backends/imgui_impl_glfw.cpp
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui_docking/backends/imgui_impl_glfw.h
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui_docking/backends/imgui_impl_opengl3.cpp
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui_docking/backends/imgui_impl_opengl3.h
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui_docking/misc/freetype/imgui_freetype.cpp
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui_docking/misc/freetype/imgui_freetype.h)
 source_group(src/imgui FILES ${IMGUI_IMPL_SOURCES})
 
 add_executable(${PROJECT}
 	${SRC_SOURCES}
+	${CMAKE_SOURCES}
 	${IMGUI_IMPL_SOURCES}
 )
+
+set_definitions(imguipack)
+set_definitions(freetype)
+set_definitions(boost_regex)
+set_definitions(${PROJECT})
+
+target_include_directories(imguipack PUBLIC
+	${CMAKE_SOURCE_DIR}/demo/src/headers
+)
+
+target_include_directories(${PROJECT} PRIVATE  
+	${CMAKE_CURRENT_SOURCE_DIR}/src
+	${CMAKE_CURRENT_SOURCE_DIR}/src/headers
+)
+
+target_link_libraries(${PROJECT} PRIVATE imguipack glad glfw)
 
 if(MSVC)
 	set_target_properties(${PROJECT} PROPERTIES LINK_FLAGS "/ENTRY:mainCRTStartup")
@@ -89,13 +110,6 @@ if(MSVC)
 	set_target_properties(${PROJECT} PROPERTIES LINK_FLAGS_MINSIZEREL "/ENTRY:mainCRTStartup")
 	set_target_properties(${PROJECT} PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/ENTRY:mainCRTStartup")
 endif()
-
-target_include_directories(${PROJECT} PRIVATE  
-	${CMAKE_CURRENT_SOURCE_DIR}/src
-	${CMAKE_CURRENT_SOURCE_DIR}/src/headers
-)
-
-target_link_libraries(${PROJECT} PRIVATE imguipack glad glfw)
 
 set_target_properties(${PROJECT} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${FINAL_BIN_DIR})
 set_target_properties(${PROJECT} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG ${FINAL_BIN_DIR})

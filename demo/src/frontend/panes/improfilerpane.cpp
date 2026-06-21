@@ -1,5 +1,7 @@
 #include "improfilerpane.h"
 
+#ifdef USE_EMBEDDED_FRAME_PROFILER
+
 namespace Panes {
 
 bool ImProfilerPane::init() {
@@ -37,3 +39,5 @@ bool ImProfilerPane::setFromXmlNodes(const ez::xml::Node& aNode, const ez::xml::
 }
 
 }  // namespace pane
+
+#endif  // USE_EMBEDDED_FRAME_PROFILER
