@@ -130,13 +130,6 @@ void Frontend::m_drawMainMenuBar() {
         return;
     }
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("Open cdp")) {
-            IGFD::FileDialogConfig config;
-            config.countSelectionMax = 1;
-            config.flags = ImGuiFileDialogFlags_Modal;
-            config.path = getDatas().lastOpenPath;
-            ImGuiFileDialog::ref().OpenDialog("OPEN_CDP_FILE", "Open a cdp file", ".cdp", config);
-        }
         if (ImGui::MenuItem("Quit", "Alt+F4")) {
             GLFWwindow *win = glfwGetCurrentContext();
             if (win) {
@@ -150,11 +143,12 @@ void Frontend::m_drawMainMenuBar() {
     if (ImGui::BeginMenu("Tools")) {
         if (ImGui::BeginMenu("Styles")) {
             ImGuiThemeHelper::ref().DrawMenu();
-            ImGui::Separator();
-            ImGui::MenuItem("ImGui Demo", nullptr, &m_showFlags.imgui);
-            ImGui::MenuItem("ImNodal Demo", nullptr, &m_showFlags.imnodal);
             ImGui::EndMenu();
         }
+        ImGui::Separator();
+        ImGui::MenuItem("ImGui Demo", nullptr, &m_showFlags.imguiDemo);
+        ImGui::MenuItem("ImGui Metrics", nullptr, &m_showFlags.imguiMetrics);
+        ImGui::MenuItem("ImNodal Demo", nullptr, &m_showFlags.imnodalDemo);
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Help")) {
@@ -175,11 +169,14 @@ void Frontend::m_drawMainStatusBar() {
 
 void Frontend::m_drawDialogs() {
     ImLayout::ref().drawDialogsAndPopups(m_rect);
-    if (m_showFlags.imgui) {
-        ImGui::ShowDemoWindow(&m_showFlags.imgui);
+    if (m_showFlags.imguiDemo) {
+        ImGui::ShowDemoWindow(&m_showFlags.imguiDemo);
     }
-    if (m_showFlags.imnodal) {
-        ImNodal::ShowDemoWindow(&m_showFlags.imnodal);
+    if (m_showFlags.imguiMetrics) {
+        ImGui::ShowMetricsWindow(&m_showFlags.imguiMetrics);
+    }
+    if (m_showFlags.imnodalDemo) {
+        ImNodal::ShowDemoWindow(&m_showFlags.imnodalDemo);
     }
     m_drawAboutDialog();
 }
@@ -220,17 +217,33 @@ ez::xml::Nodes Frontend::getXmlNodes(const std::string &aUserDatas) {
     root.addChilds(ImLayout::ref().getXmlNodes(aUserDatas));
     root.addChild("places").setContent(ImGuiFileDialog::ref().SerializePlaces());
     root.addChilds(ImGuiThemeHelper::ref().getXmlNodes(aUserDatas));
+    auto &flagNode = root.addChild("flags");
+    flagNode.addChild("imgui_demo").setContent(m_showFlags.imguiDemo);
+    flagNode.addChild("imgui_metrics").setContent(m_showFlags.imguiMetrics);
+    flagNode.addChild("imnodal_demo").setContent(m_showFlags.imnodalDemo);
     return root.getChildren();
 }
 
 bool Frontend::setFromXmlNodes(const ez::xml::Node &aNode, const ez::xml::Node &aParent, const std::string &aUserDatas) {
+    const auto &name{aNode.getName()};
+    const auto &parentName{aParent.getName()};
     ImLayout::ref().setFromXmlNodes(aNode, aParent, aUserDatas);
     ImGuiThemeHelper::ref().setFromXmlNodes(aNode, aParent, aUserDatas);
     Panes::ConsolePane::ref()->setFromXmlNodes(aNode, aParent, aUserDatas);
-    if (aNode.getName() == "places") {
-        ImGuiFileDialog::ref().DeserializePlaces(aNode.getContent());
-    } else if (aNode.getName() == "last_open_path") {
-        getDatasRef().lastOpenPath = aNode.getContent();
+    if (parentName == "flags") {
+        if (name == "imgui_demo") {
+            m_showFlags.imguiDemo = aNode.getContent<bool>();
+        } else if (name == "imgui_metrics") {
+            m_showFlags.imguiMetrics = aNode.getContent<bool>();
+        } else if (name == "imnodal_demo") {
+            m_showFlags.imnodalDemo = aNode.getContent<bool>();
+        }
+    } else {
+        if (name == "places") {
+            ImGuiFileDialog::ref().DeserializePlaces(aNode.getContent());
+        } else if (name == "last_open_path") {
+            getDatasRef().lastOpenPath = aNode.getContent();
+        }
     }
     return true;
 }

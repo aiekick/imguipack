@@ -16,8 +16,9 @@ class Frontend : public ez::xml::Config {
 private:
     ImRect m_rect{};
     struct ImGuiDemoFlags {
-        bool imgui{false};
-        bool imnodal{false};
+        bool imguiDemo{false};
+        bool imguiMetrics{false};
+        bool imnodalDemo{false};
         bool aboutDialog{false};
     } m_showFlags;
     ez::Actions m_actionsSystem;
