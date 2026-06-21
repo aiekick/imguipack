@@ -32,6 +32,7 @@ option(USE_EMBEDDED_FRAME_PROFILER "Use EmbeddedFrameProfiler" ${DEFAULT_FLAG})
 option(IMGUIPACK_USE_STD_FILESYSTEM "Enable the use of std::filesystem in ImGuiFileDialog" ${DEFAULT_FLAG})
 
 option(USE_DEMO_APP "Use demo app" ${DEFAULT_FLAG})
+option(IMGUIPACK_BUILD_TESTS "Build ImGuiPack headless tests" OFF)
 
 if(NOT CMAKE_DEBUG_POSTFIX)
   set(CMAKE_DEBUG_POSTFIX _debug)
@@ -441,4 +442,9 @@ if (USE_DEMO_APP)
 		set_target_properties(boost_regex PROPERTIES FOLDER 3rdparty)
 	endif()
 	add_subdirectory(demo)
+endif()
+
+if (IMGUIPACK_BUILD_TESTS)
+	enable_testing()
+	add_subdirectory(tests)
 endif()
