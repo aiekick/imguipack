@@ -130,6 +130,7 @@
 
 #ifdef USE_IM_NODAL
 	#include <3rdparty/imgui_imnodal/ImNodal.h>
+	#include <3rdparty/imgui_imnodal/ImNodalLayouts.h>
 #endif
 
 #ifdef USE_IM_CODE
