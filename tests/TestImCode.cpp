@@ -342,6 +342,80 @@ bool TestImCode_ReplaceAll() {
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Direct line access (v0.2)
+// ---------------------------------------------------------------------------
+bool TestImCode_LineAccess() {
+    Code editor;
+    editor.init();
+    setContent(editor, "aa\nbb\ncc");
+    CTEST_ASSERT(editor.getLineCount() == 3);
+    CTEST_ASSERT(editor.getLineText(1) == "bb");
+    CTEST_ASSERT(editor.getLineText(-1).empty());
+    CTEST_ASSERT(editor.getLineText(3).empty());
+    setContent(editor, "");
+    CTEST_ASSERT(editor.getLineCount() == 1);  // the empty document keeps one empty line
+    CTEST_ASSERT(editor.getLineText(0).empty());
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Completion popup overlay state (v0.2) — model level, no Render involved
+// ---------------------------------------------------------------------------
+bool TestImCode_CompletionOverlayState() {
+    Code editor;
+    editor.init();
+    setContent(editor, "ltg.ad");
+    CTEST_ASSERT(!editor.isCompletionPopupOpen());
+    std::vector<Code::CompletionItem> items;
+    items.push_back({"addSignalValue", "addSignalValue", 0, "function"});
+    editor.openCompletionPopup(items, Code::Pos{0, 4});
+    CTEST_ASSERT(editor.isCompletionPopupOpen());
+    // re-opening with an empty list closes silently (the refilter-to-nothing path)
+    editor.openCompletionPopup(std::vector<Code::CompletionItem>(), Code::Pos{0, 4});
+    CTEST_ASSERT(!editor.isCompletionPopupOpen());
+    editor.openCompletionPopup(items, Code::Pos{0, 4});
+    editor.closeCompletionPopup();
+    CTEST_ASSERT(!editor.isCompletionPopupOpen());
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Signature tooltip overlay state (v0.2)
+// ---------------------------------------------------------------------------
+bool TestImCode_SignatureOverlayState() {
+    Code editor;
+    editor.init();
+    setContent(editor, "foo(");
+    CTEST_ASSERT(!editor.isSignatureTooltipOpen());
+    Code::SignatureTooltip tooltip;
+    tooltip.label = "foo";
+    tooltip.args.push_back({"a", "number"});
+    tooltip.args.push_back({"b", "string"});
+    editor.openSignatureTooltip(tooltip, Code::Pos{0, 4});
+    CTEST_ASSERT(editor.isSignatureTooltipOpen());
+    editor.updateSignatureCurrentArg(1);
+    editor.closeSignatureTooltip();
+    CTEST_ASSERT(!editor.isSignatureTooltipOpen());
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Zoom get/set with clamping (v0.2)
+// ---------------------------------------------------------------------------
+bool TestImCode_ZoomClamp() {
+    Code editor;
+    editor.init();
+    CTEST_ASSERT(editor.getZoom() == 1.0f);
+    editor.setZoom(2.0f);
+    CTEST_ASSERT(editor.getZoom() == 2.0f);
+    editor.setZoom(100.0f);
+    CTEST_ASSERT(editor.getZoom() == 6.0f);   // upper clamp
+    editor.setZoom(0.0f);
+    CTEST_ASSERT(editor.getZoom() == 0.3f);   // lower clamp
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
@@ -365,6 +439,10 @@ bool TestImCode(const std::string& vTest) {
     else IfTestExist(TestImCode_FindNext);
     else IfTestExist(TestImCode_FindCaseInsensitive);
     else IfTestExist(TestImCode_ReplaceAll);
+    else IfTestExist(TestImCode_LineAccess);
+    else IfTestExist(TestImCode_CompletionOverlayState);
+    else IfTestExist(TestImCode_SignatureOverlayState);
+    else IfTestExist(TestImCode_ZoomClamp);
     return false;
 }
 
